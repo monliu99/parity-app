@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String
+  passwordHash  String
+  createdAt     DateTime     @default(now())
+  memberships   Membership[]
+}
+
+model Partnership {
+  id           String       @id @default(cuid())
+  inviteCode   String       @unique
+  createdAt    DateTime     @default(now())
+  members      Membership[]
+  accounts     Account[]
+  transactions Transaction[]
+  goals        Goal[]
+  budgets      Budget[]
+}
+
+model Membership {
+  userId        String
+  partnershipId String
+  joinedAt      DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+
+  @@id([userId, partnershipId])
+}
+
+model Account {
+  id            String       @id @default(cuid())
+  partnershipId String
+  userId        String?      // owner of this account (used for relative Mine/Partner display)
+  ownerLabel    String       @default("MINE") // kept for compatibility
+  name          String
+  type          String       // "CHECKING" | "SAVINGS" | "INVESTMENT" | "CREDIT" | "OTHER"
+  balance       Float
+  institution   String?
+  createdAt     DateTime     @default(now())
+  partnership   Partnership  @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+}
+
+model Transaction {
+  id            String      @id @default(cuid())
+  partnershipId String
+  accountId     String
+  userId        String?     // who entered this (for viewer-relative display)
+  ownerLabel    String      // "MINE" | "PARTNER" | "JOINT"
+  merchant      String
+  amount        Float
+  category      String
+  date          DateTime
+  notes         String?
+  createdAt     DateTime    @default(now())
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id            String      @id @default(cuid())
+  partnershipId String
+  userId        String?     // null = joint goal, set = personal goal owner
+  ownerLabel    String      @default("JOINT") // "JOINT" | "PERSONAL"
+  name          String
+  targetAmount  Float
+  currentAmount Float       @default(0)
+  targetDate    DateTime?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+}
+
+model Budget {
+  id              String      @id @default(cuid())
+  partnershipId   String
+  month           String      // "2026-04" (YYYY-MM)
+  category        String
+  suggestedAmount Float
+  userAmount      Float?      // user-set override; null = use suggestedAmount
+  generatedAt     DateTime    @default(now())
+  partnership     Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+
+  @@unique([partnershipId, month, category])
+}
