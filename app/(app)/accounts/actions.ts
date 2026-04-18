@@ -76,7 +76,7 @@ export async function updateAccount(id: string, formData: FormData) {
 
     // Verify account exists and belongs to partnership
     const existing = await db.account.findFirst({
-      where: { id: accountId, partnershipId: partnership.id },
+      where: { id, partnershipId: partnership.id },
     });
 
     if (!existing) {
@@ -130,7 +130,7 @@ export async function deleteAccount(id: string) {
 
     // Verify account exists and belongs to partnership
     const existing = await db.account.findFirst({
-      where: { id: accountId, partnershipId: partnership.id },
+      where: { id, partnershipId: partnership.id },
     });
 
     if (!existing) {
