@@ -480,7 +480,7 @@ function PlanTab({ nextMonth, nextMonthBudgetRows, hasNextMonthBudget }: {
     setSaved(false);
     startGenerate(async () => {
       const result = await generateNextMonthPlanAction(userContext || undefined);
-      setPlan(result);
+      setPlan(result.plan ?? null);
     });
   }
 

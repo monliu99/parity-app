@@ -16,9 +16,7 @@ export default function NotFound() {
             Sorry, we couldn&apos;t find the page you&apos;re looking for.
           </p>
           <div className="flex justify-center pt-2">
-            <Button asChild>
-              <Link href="/">Go Home</Link>
-            </Button>
+            <Button render={<Link href="/" />}>Go Home</Button>
           </div>
         </CardContent>
       </Card>

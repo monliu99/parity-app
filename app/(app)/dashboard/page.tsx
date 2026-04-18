@@ -164,13 +164,13 @@ export default async function DashboardPage() {
       return d >= monthStart && d <= monthEnd;
     });
 
-    const monthData: { month: string; [key: string]: number } = {
+    const monthData: { month: string; [key: string]: number | string } = {
       month: getMonthLabel(i),
     };
 
     for (const t of monthTxns) {
       if (t.category !== "Income") {
-        monthData[t.category] = (monthData[t.category] || 0) + t.amount;
+        monthData[t.category] = ((monthData[t.category] as number) || 0) + t.amount;
         allCategories.add(t.category);
       }
     }
@@ -189,12 +189,12 @@ export default async function DashboardPage() {
 
   const budgetStatus = budgets.map((b) => ({
     category: b.category,
-    budgeted: b.amount,
+    budgeted: b.userAmount ?? b.suggestedAmount,
     actual: currentMonthSpendingByCategory[b.category] || 0,
-    over: (currentMonthSpendingByCategory[b.category] || 0) > b.amount,
+    over: (currentMonthSpendingByCategory[b.category] || 0) > (b.userAmount ?? b.suggestedAmount),
   }));
 
-  const totalBudgeted = budgets.reduce((sum, b) => sum + b.amount, 0);
+  const totalBudgeted = budgets.reduce((sum, b) => sum + (b.userAmount ?? b.suggestedAmount), 0);
   const totalActual = budgets.reduce((sum, b) => sum + (currentMonthSpendingByCategory[b.category] || 0), 0);
   const budgetPct = totalBudgeted > 0 ? Math.round((totalActual / totalBudgeted) * 100) : 0;
   const overBudgetCategories = budgetStatus.filter((b) => b.over);
