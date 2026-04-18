@@ -39,7 +39,7 @@ export function GoalForm({ trigger, goal }: GoalFormProps) {
         : await createGoal(formData);
 
       if (result && "error" in result) {
-        setError(result.error);
+        setError(result.error ?? null);
       } else {
         setOpen(false);
       }

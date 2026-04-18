@@ -47,7 +47,7 @@ export function EditableBalance({ accountId, balance }: EditableBalanceProps) {
     startTransition(async () => {
       const result = await updateAccountBalance(accountId, newBalance);
       if (result && "error" in result) {
-        setError(result.error);
+        setError(result.error ?? null);
       } else {
         setIsEditing(false);
       }

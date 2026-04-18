@@ -54,7 +54,7 @@ export function TransactionForm({ accounts, trigger, currentUserId, transaction 
         : await createTransaction(formData);
 
       if (result && "error" in result) {
-        setError(result.error);
+        setError(result.error ?? null);
       } else {
         setOpen(false);
       }
