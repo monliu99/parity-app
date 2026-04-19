@@ -3,8 +3,10 @@
 import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function createGoal(formData: FormData) {
+  let isFirst = false;
   try {
     const { partnership, userId } = await getPartnership();
 
@@ -49,6 +51,11 @@ export async function createGoal(formData: FormData) {
       }
     }
 
+    const existingCount = await db.goal.count({
+      where: { partnershipId: partnership.id },
+    });
+    isFirst = existingCount === 0;
+
     await (db.goal.create as Function)({
       data: {
         partnershipId: partnership.id,
@@ -64,13 +71,14 @@ export async function createGoal(formData: FormData) {
 
     revalidatePath("/goals");
     revalidatePath("/dashboard");
-    return { success: true };
   } catch (error) {
     console.error("Error creating goal:", error);
     return {
       error: error instanceof Error ? error.message : "Failed to create goal",
     };
   }
+  if (isFirst) redirect("/dashboard");
+  return { success: true };
 }
 
 export async function updateGoal(id: string, formData: FormData) {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,8 @@ import { signupAction } from "./actions";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillInviteCode = searchParams.get("invite") ?? "";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -106,6 +108,7 @@ export default function SignupPage() {
               name="inviteCode"
               placeholder="e.g. BLUE42"
               className="uppercase tracking-widest"
+              defaultValue={prefillInviteCode.toUpperCase()}
             />
             <p className="text-xs text-muted-foreground">
               Leave blank to start a new partnership and invite your partner later.

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createTransaction(formData: FormData) {
+  let isFirst = false;
   try {
     const { partnership, userId } = await getPartnership();
 
@@ -51,6 +52,11 @@ export async function createTransaction(formData: FormData) {
       return { error: "Selected account not found" };
     }
 
+    const existingCount = await db.transaction.count({
+      where: { partnershipId: partnership.id },
+    });
+    isFirst = existingCount === 0;
+
     // AI categorization
     const category = await categorizeTransaction(merchant, amount);
 
@@ -70,13 +76,14 @@ export async function createTransaction(formData: FormData) {
 
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
-    return { success: true };
   } catch (error) {
     console.error("Error creating transaction:", error);
     return {
       error: error instanceof Error ? error.message : "Failed to create transaction",
     };
   }
+  if (isFirst) redirect("/dashboard");
+  return { success: true };
 }
 
 export async function updateTransaction(id: string, formData: FormData) {

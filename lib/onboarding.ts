@@ -42,18 +42,20 @@ export function shouldShowOnboarding(
 export function getCurrentOnboardingStep(
   accountCount: number,
   transactionCount: number,
-  goalCount: number
+  goalCount: number,
+  memberCount: number = 1
 ): number {
   if (accountCount === 0) return 1;
   if (transactionCount === 0) return 2;
   if (goalCount === 0) return 3;
+  if (memberCount < 2) return 4; // invite partner
   return 0; // Complete
 }
 
 /**
  * Get the total number of steps in onboarding.
  */
-export const TOTAL_ONBOARDING_STEPS = 3;
+export const TOTAL_ONBOARDING_STEPS = 4;
 
 /**
  * Step metadata for rendering onboarding UI.
@@ -82,6 +84,14 @@ export const ONBOARDING_STEPS = [
     description:
       "Working toward something? Create a goal to track your progress together.",
     actionLabel: "Set Goal",
+    skipable: true,
+  },
+  {
+    step: 4,
+    title: "Invite your partner",
+    description:
+      "Parity works best together. Share your invite link so your partner can join.",
+    actionLabel: "Copy invite link",
     skipable: true,
   },
 ];

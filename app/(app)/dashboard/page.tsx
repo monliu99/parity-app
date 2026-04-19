@@ -213,10 +213,9 @@ export default async function DashboardPage() {
   const currentStep = getCurrentOnboardingStep(
     accounts.length,
     totalTransactionCount,
-    goals.length
+    goals.length,
+    members.length
   );
-  const showOnboarding = currentStep > 0;
-
   const hasBudgets = budgets.length > 0;
   const hasSpending = currentMonthTxns.some((t) => t.category !== "Income");
 
@@ -229,9 +228,12 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {showOnboarding ? (
-        <OnboardingFlow currentStep={currentStep} />
-      ) : (
+      <OnboardingFlow
+        currentStep={currentStep}
+        inviteCode={partnership.inviteCode}
+        partnershipId={partnership.id}
+      >
+        {/* Regular dashboard content — shown when onboarding is complete/dismissed */}
         <>
           {/* Hero: Parity's take — synthesized AI insight */}
           <SynthesisCard insight={synthesis} />
@@ -428,7 +430,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </>
-      )}
+      </OnboardingFlow>
     </div>
   );
 }

@@ -3,10 +3,12 @@
 import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 const VALID_ACCOUNT_TYPES = ["CHECKING", "SAVINGS", "INVESTMENT", "RETIREMENT", "CREDIT", "OTHER"];
 
 export async function createAccount(formData: FormData) {
+  let isFirst = false;
   try {
     const { partnership, userId } = await getPartnership();
 
@@ -47,6 +49,11 @@ export async function createAccount(formData: FormData) {
       }
     }
 
+    const existingCount = await db.account.count({
+      where: { partnershipId: partnership.id },
+    });
+    isFirst = existingCount === 0;
+
     await (db.account.create as Function)({
       data: {
         partnershipId: partnership.id,
@@ -61,13 +68,14 @@ export async function createAccount(formData: FormData) {
 
     revalidatePath("/accounts");
     revalidatePath("/dashboard");
-    return { success: true };
   } catch (error) {
     console.error("Error creating account:", error);
     return {
       error: error instanceof Error ? error.message : "Failed to create account",
     };
   }
+  if (isFirst) redirect("/dashboard");
+  return { success: true };
 }
 
 export async function updateAccount(id: string, formData: FormData) {
