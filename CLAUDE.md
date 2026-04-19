@@ -56,7 +56,8 @@ npx tsx scripts/seed.ts               # Seed Neon DB with demo data
 
 - `components/nav.tsx` — Desktop sidebar navigation with logo, main nav items, profile section with settings/sign out.
 - `components/mobile-nav.tsx` — Mobile slide-out drawer using Sheet component. Reuses same nav items and profile section.
-- `app/(app)/dashboard/spending-trends-chart.tsx` — 4-month stacked area chart showing spending trends over time.
+- `app/(app)/dashboard/synthesis-card.tsx` — Hero card on dashboard rendering a single AI-generated narrative insight ("Parity's take"). Returns `null` if synthesis is empty.
+- `app/(app)/dashboard/spending-trends-chart.tsx` — Month-over-month grouped bar chart (this month colored per category, last month muted gray). Top 8 categories by this-month spending.
 - `app/(app)/onboarding/onboarding-flow.tsx` — 3-step wizard (account → transaction → goal) for new users.
 - `components/onboarding/onboarding-step.tsx` — Reusable onboarding step card component.
 
@@ -88,7 +89,9 @@ Goal          id, partnershipId, userId (null=joint), ownerLabel (JOINT|PERSONAL
 All integrations use the Anthropic SDK directly (no streaming):
 
 1. **`lib/ai/categorize.ts`** — `claude-haiku-4-5-20251001`. Called on every transaction save (in `transactions/actions.ts`). Returns one of 11 fixed categories. Fails silently → "Other".
-2. **`lib/ai/insights.ts`** — `claude-haiku-4-5-20251001`. Called on dashboard load. Returns 2–3 insight strings as a JSON array. Cached 1 hour per `partnershipId` in a module-level `Map`.
+2. **`lib/ai/insights.ts`** — `claude-haiku-4-5-20251001`. Two functions:
+   - `getDashboardSynthesis(partnershipId, transactions, goals, accounts, budgetState?)` — **currently used**. Returns ONE 2-3 sentence narrative (35-50 words) synthesizing spending trend, savings rate, goal pacing, and budget status. Rendered in `SynthesisCard` on dashboard. 1h TTL cache.
+   - `getSpendingInsights(...)` — legacy; returns `{ overview, spending, goals }` string arrays. No longer called from dashboard; kept exported as dead code for now.
 3. **`lib/ai/chat.ts`** — `claude-haiku-4-5-20251001`. Stateless. Full context (all accounts, 60-day transactions capped at 100, all goals) sent each call. Invoked via `chat/actions.ts` server action.
 4. **`lib/ai/budget.ts`** — `claude-haiku-4-5-20251001`. Three exported functions, each with its own in-memory cache:
    - `generateBudgetSuggestions(partnershipId, month, historicalByCategory)` — per-category budget amounts from 90-day spending history. 24h TTL. Called by `generateBudgetAction` in `budget/actions.ts`.
@@ -161,6 +164,8 @@ DATABASE_URL="postgresql://..."  # Neon connection string
 - ✅ 3-step onboarding wizard for new users
 - ✅ Inline account balance quick-edit
 - ✅ Global error boundaries and action error handling
-- ✅ Dashboard enhancements: Cash Flow Summary, Spending Trends Chart (4-month), Budget Health widget, Recent Activity feed, Goal urgency indicators, Account highlights
+- ✅ Dashboard: hero AI synthesis card ("Parity's take") + 3-card row (Net Worth, Cash Flow, Budget Status) + month-over-month spending chart
+- ✅ Personalized page title ("{me} & {partner}'s Dashboard") and partner name display
+- ✅ Type scale standardized to 5 tiers (Display / Stat / Title / Body / Meta); same-line-same-size rule
 
 **Next phase:** Phase 2 — Bank Integration (Plaid) when ready for production users.

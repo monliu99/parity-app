@@ -36,7 +36,8 @@ Made it look and feel like a real product. Focused on UX and visual design befor
 - [x] **Error handling** — global error boundaries (`app/error.tsx`, `app/(app)/error.tsx`), server action error responses
 - [x] **Vercel deployment** — live at https://withparity.vercel.app (production env vars: AUTH_SECRET, AUTH_URL, NEXTAUTH_URL, ANTHROPIC_API_KEY, DATABASE_URL)
 - [x] **Budget page** — Track tab with grouped progress bars (Needs Attention / On Track), transaction drilldown per category, AI one-sentence budget status; Plan tab with AI-generated next-month budget + discussion prompts; inline budget amount editing
-- [x] **Dashboard enhancements** — Cash Flow Summary (income vs spending, savings rate, month-over-month trends), Spending Trends Chart (4-month stacked area), Budget Health widget, Recent Activity feed, Goal urgency indicators, Account highlights (biggest gain/drop)
+- [x] **Dashboard (simplified)** — hero "Parity's take" AI synthesis card (single 2–3 sentence narrative across savings, spending, goals, budget); 3-card row (Net Worth, Cash Flow, Budget Status); month-over-month spending comparison chart. Personalized page title and partner names.
+- [x] **Design system standardization** — 5-tier type scale (Display / Stat / Title / Body / Meta) documented in CLAUDE.md; same-visual-line-same-size rule; color conventions (amber for warnings, emerald for positives, never red)
 
 ---
 
@@ -57,7 +58,7 @@ The single highest-leverage feature. Removes the biggest friction point: manual 
 
 Deeper AI integration that justifies Parity's positioning as AI-native.
 
-- [ ] **Spending Pulse improvements** — trend detection, anomaly flagging, month-over-month comparisons
+- [ ] **Spending Pulse improvements** — trend detection and anomaly flagging (month-over-month comparisons now live on dashboard)
 - [ ] **Proactive nudges** — "You're $200 ahead of last month's dining pace" (push or in-app)
 - [ ] **Ask Parity: conversation memory** — multi-turn conversation with context retention across sessions
 - [ ] **Scenario planning** — "If we cut dining by $200/month, how much faster do we hit our vacation goal?"
@@ -115,3 +116,6 @@ Features that make Parity a sticky, shareable product.
 | No expense splitting | Fairness tracking creates conflict, not alignment — against core thesis |
 | bcrypt rounds 10 → 8 | `bcryptjs` (pure JS) at cost 10 takes 1–3s on Vercel's throttled CPU; cost 8 brings login under 1s on warm functions while remaining secure |
 | `NEXTAUTH_URL` + `AUTH_URL` both required | NextAuth v5 uses `AUTH_URL`; older NextAuth config also reads `NEXTAUTH_URL`. Both must point to the stable production alias (`withparity.vercel.app`), never a per-deployment URL |
+| Dashboard simplified from 7 regions to 3 | Too busy; diluted signal. Replaced Spending/Goals insight cards + recent activity + goals summary + 4-month stacked chart with a single hero AI synthesis narrative, three summary cards, and a MoM comparison chart. Other pages (accounts, goals, transactions) remain the home for their respective domains. |
+| Type scale collapsed to 5 tiers | 12-role scale was drifting; same-line mismatches (e.g., label text-sm next to amount text-base) felt random. Enforced: one hero per page (Display), summary-card numbers (Stat), H1 (Title), everything else (Body sm), eyebrows/captions (Meta xs). Same-visual-line = same tier. |
+| Amber replaces red for warnings | `text-amber-600`/`text-amber-500` across all pages (over-budget, spending up, account drops). Matches the tone ("observations, not accusations") and removes the alarm quality of red. |
