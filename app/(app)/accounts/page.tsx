@@ -124,13 +124,13 @@ function AccountGroup({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base">{label}</CardTitle>
-            <CardDescription className="mt-0.5">
+            <CardTitle className="text-sm font-semibold">{label}</CardTitle>
+            <CardDescription className="mt-0.5 text-xs">
               {accounts.length} account{accounts.length !== 1 ? "s" : ""}
             </CardDescription>
           </div>
-          {/* Total sits flush right — same edge as individual balances below */}
-          <span className="text-xl font-bold tabular-nums">
+          {/* Total sits flush right, same size as label — same edge as individual balances below */}
+          <span className="text-sm font-bold tabular-nums">
             {formatCurrency(total)}
           </span>
         </div>

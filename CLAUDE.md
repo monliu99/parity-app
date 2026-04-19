@@ -97,22 +97,25 @@ All integrations use the Anthropic SDK directly (no streaming):
 
 ### Design system
 
-**Type scale** — enforce these consistently; same semantic role = same size:
+**Type scale** — exactly 5 tiers. Emphasis within a tier comes from `font-medium|semibold|bold` and color, never from bumping to a bigger size.
 
-| Role | Classes |
-|---|---|
-| Hero number (net worth) | `text-5xl font-bold tabular-nums` |
-| Summary stat | `text-3xl font-bold tabular-nums` |
-| Page H1 | `text-2xl font-bold` |
-| Card/group header number | `text-xl font-bold tabular-nums` |
-| Card/section title | `text-base font-semibold` |
-| Page subtitle | `text-sm text-muted-foreground mt-1` (always explicit) |
-| Primary item name (merchant, account, goal) | `text-sm font-medium` |
-| Primary amount in list rows | `text-sm font-semibold tabular-nums` |
-| AI insight body / chat messages | `text-sm` |
-| Meta / secondary text | `text-xs text-muted-foreground` |
-| Section/field labels | `text-xs uppercase tracking-widest font-medium text-muted-foreground` |
-| Badges | `text-xs border-0` |
+| Tier | Class | Use |
+|---|---|---|
+| **Display** | `text-5xl font-bold tabular-nums` | Exactly ONE hero number per page (currently: dashboard net worth). Nothing else. |
+| **Stat** | `text-3xl font-bold tabular-nums` | Summary card big numbers (transactions totals, budget totals) when the number stands alone on its own line with an eyebrow label above. |
+| **Title** | `text-2xl font-bold` | Page H1 only. |
+| **Body** | `text-sm` | Default for EVERYTHING else — list row labels + amounts, inline amounts, buttons, subtitles, AI insight bodies, form fields, empty-state text. Vary weight (`font-medium` / `font-semibold` / `font-bold`) and color (`text-foreground` / `text-muted-foreground` / `text-emerald-600` / `text-amber-600`) for emphasis. |
+| **Meta** | `text-xs` | Eyebrow labels (`uppercase tracking-widest font-medium text-muted-foreground`), dates, counts, captions, helper text, badges (`text-xs border-0`). |
+
+**Ironclad rule:** any two text elements on the same visual line must use the same tier. If a label and amount sit in one row, they're both `text-sm` (Body) or both `text-xs` (Meta). Stat-tier numbers always live on their own line with an eyebrow Meta label above.
+
+**Page subtitle pattern:** `text-sm text-muted-foreground mt-1` (explicit, always under H1).
+
+**Sign/outcome colors** — use across all pages:
+- Positive / income / gain: `text-emerald-600`
+- Negative / warning / over-budget: `text-amber-600` (never `text-red-*`)
+- Near-limit / caution: `text-amber-500`
+- Neutral text emphasis: `text-foreground`
 
 **List rows** — use this pattern on all item rows (accounts, transactions, goals):
 ```

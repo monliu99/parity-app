@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Transaction, Goal } from "@/app/generated/prisma/client";
+import type { Transaction, Goal, Account } from "@/app/generated/prisma/client";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -119,5 +119,113 @@ Generate insights.`,
     return insights;
   } catch {
     return empty;
+  }
+}
+
+const synthesisCache = new Map<string, { synthesis: string; expiresAt: number }>();
+
+export async function getDashboardSynthesis(
+  partnershipId: string,
+  transactions: TransactionWithAccount[],
+  goals: Goal[],
+  accounts: Account[],
+  budgetState?: { totalBudgeted: number; totalSpent: number } | null
+): Promise<string> {
+  const cached = synthesisCache.get(partnershipId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.synthesis;
+  }
+
+  if (transactions.length === 0 && goals.length === 0 && accounts.length === 0) {
+    return "";
+  }
+
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const currentMonth = transactions.filter((t) => new Date(t.date) >= currentMonthStart);
+  const previousMonth = transactions.filter((t) => {
+    const d = new Date(t.date);
+    return d >= previousMonthStart && d <= previousMonthEnd;
+  });
+
+  const sumBy = (txns: TransactionWithAccount[], predicate: (t: TransactionWithAccount) => boolean) =>
+    txns.filter(predicate).reduce((sum, t) => sum + t.amount, 0);
+
+  const currentIncome = sumBy(currentMonth, (t) => t.category === "Income");
+  const currentSpending = sumBy(currentMonth, (t) => t.category !== "Income");
+  const previousSpending = sumBy(previousMonth, (t) => t.category !== "Income");
+  const savingsRate = currentIncome > 0
+    ? Math.round(((currentIncome - currentSpending) / currentIncome) * 100)
+    : 0;
+
+  const currentByCategory: Record<string, number> = {};
+  for (const t of currentMonth) {
+    if (t.category !== "Income") {
+      currentByCategory[t.category] = (currentByCategory[t.category] ?? 0) + t.amount;
+    }
+  }
+  const previousByCategory: Record<string, number> = {};
+  for (const t of previousMonth) {
+    if (t.category !== "Income") {
+      previousByCategory[t.category] = (previousByCategory[t.category] ?? 0) + t.amount;
+    }
+  }
+
+  const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
+
+  const goalsContext = goals.map((g) => ({
+    name: g.name,
+    pct: g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0,
+    targetDate: g.targetDate
+      ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      : null,
+  }));
+
+  try {
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 200,
+      system: `You are Parity's AI assistant for couples. Write ONE short narrative summarizing this couple's current financial picture.
+
+Rules:
+- Use "you" or "you both" — never "your partner".
+- 2-3 sentences, 35-50 words total.
+- Neutral observations, never judgments or accusations.
+- Forward-looking when natural ("at this pace…", "you're on track to…").
+- Synthesize across: spending vs last month, savings rate, goal pacing, and budget status. Don't list all four — pick the 2-3 most signal-rich observations and weave them together naturally.
+- No bullet points, no headings — flowing prose only.
+- No emojis, no markdown.
+
+Return ONLY the narrative text, nothing else.`,
+      messages: [
+        {
+          role: "user",
+          content: `Net worth: $${netWorth.toFixed(0)}
+Current month spending: $${currentSpending.toFixed(0)} (previous month: $${previousSpending.toFixed(0)})
+Current month income: $${currentIncome.toFixed(0)}
+Savings rate this month: ${savingsRate}%
+Current month spending by category: ${JSON.stringify(currentByCategory)}
+Previous month spending by category: ${JSON.stringify(previousByCategory)}
+${budgetState ? `Budget this month: $${budgetState.totalSpent.toFixed(0)} spent of $${budgetState.totalBudgeted.toFixed(0)} budgeted` : "No budget set this month"}
+Goals: ${JSON.stringify(goalsContext)}
+
+Write the synthesis.`,
+        },
+      ],
+    });
+
+    const text =
+      message.content[0].type === "text" ? message.content[0].text.trim() : "";
+
+    synthesisCache.set(partnershipId, {
+      synthesis: text,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
+    return text;
+  } catch {
+    return "";
   }
 }

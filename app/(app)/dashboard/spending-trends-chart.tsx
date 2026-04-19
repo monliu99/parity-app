@@ -1,60 +1,57 @@
 "use client";
 
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   Legend,
+  CartesianGrid,
 } from "recharts";
-import { CATEGORY_CHART_COLORS } from "@/lib/category-colors";
+import { CATEGORY_CHART_COLORS, DEFAULT_CHART_COLOR } from "@/lib/category-colors";
 
-export interface MonthlySpendingData {
-  month: string;
-  [category: string]: string | number;
+export interface MonthComparisonRow {
+  category: string;
+  thisMonth: number;
+  lastMonth: number;
 }
 
 interface SpendingTrendsChartProps {
-  data: MonthlySpendingData[];
-  categories: string[];
+  data: MonthComparisonRow[];
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  HOUSING: "Housing",
-  GROCERIES: "Groceries",
-  DINING: "Dining Out",
-  TRANSPORT: "Transport",
-  SHOPPING: "Shopping",
-  ENTERTAINMENT: "Entertainment",
-  UTILITIES: "Utilities",
-  HEALTHCARE: "Healthcare",
-  INSURANCE: "Insurance",
-  OTHER: "Other",
-};
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(value);
+}
 
-export function SpendingTrendsChart({ data, categories }: SpendingTrendsChartProps) {
-  // Sort categories by total spending across all months (descending)
-  const categoryTotals: Record<string, number> = {};
-  for (const category of categories) {
-    for (const month of data) {
-      categoryTotals[category] = (categoryTotals[category] || 0) + (month[category] as number || 0);
-    }
-  }
-  const sortedCategories = categories.sort((a, b) => (categoryTotals[b] || 0) - (categoryTotals[a] || 0));
+export function SpendingTrendsChart({ data }: SpendingTrendsChartProps) {
+  const hasData = data.some((row) => row.thisMonth > 0 || row.lastMonth > 0);
+  if (!hasData) return null;
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart
+        data={data}
+        margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+        barCategoryGap="20%"
+      >
+        <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
         <XAxis
-          dataKey="month"
-          tick={{ fontSize: 11 }}
+          dataKey="category"
+          tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
           tickLine={false}
           axisLine={false}
+          interval={0}
         />
         <YAxis
-          tick={{ fontSize: 11 }}
+          tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) =>
@@ -62,19 +59,10 @@ export function SpendingTrendsChart({ data, categories }: SpendingTrendsChartPro
           }
         />
         <Tooltip
-          formatter={(value, name) => {
-            const label = CATEGORY_LABELS[name as string] || name;
-            return [
-              typeof value === "number"
-                ? new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                    minimumFractionDigits: 0,
-                  }).format(value)
-                : value,
-              label,
-            ];
-          }}
+          formatter={(value, name) => [
+            typeof value === "number" ? formatCurrency(value) : value,
+            name === "thisMonth" ? "This month" : "Last month",
+          ]}
           cursor={{ fill: "oklch(0.515 0.092 155 / 0.06)" }}
           contentStyle={{
             backgroundColor: "var(--background)",
@@ -82,18 +70,28 @@ export function SpendingTrendsChart({ data, categories }: SpendingTrendsChartPro
             borderRadius: "8px",
           }}
         />
-        {sortedCategories.map((category) => (
-          <Area
-            key={category}
-            type="monotone"
-            dataKey={category}
-            stackId="1"
-            stroke={CATEGORY_CHART_COLORS[category] || "#888"}
-            fill={CATEGORY_CHART_COLORS[category] || "#888"}
-            fillOpacity={0.7}
-          />
-        ))}
-      </AreaChart>
+        <Legend
+          formatter={(value) => (value === "thisMonth" ? "This month" : "Last month")}
+          iconType="circle"
+          wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
+        />
+        <Bar
+          dataKey="lastMonth"
+          fill="#cbd5e1"
+          radius={[4, 4, 0, 0]}
+        />
+        <Bar
+          dataKey="thisMonth"
+          radius={[4, 4, 0, 0]}
+        >
+          {data.map((row) => (
+            <Cell
+              key={row.category}
+              fill={CATEGORY_CHART_COLORS[row.category] || DEFAULT_CHART_COLOR}
+            />
+          ))}
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
   );
 }

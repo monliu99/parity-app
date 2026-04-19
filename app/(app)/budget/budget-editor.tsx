@@ -260,11 +260,11 @@ function ColumnHeaders({ showSpent = true }: { showSpent?: boolean }) {
     <div className="flex items-center px-3 gap-4 pb-2">
       <div className="flex-1" /> {/* matches flex-1 name area in row */}
       <div className="flex items-center gap-4 shrink-0">
-        <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide w-16 text-center">budget</span>
+        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-16 text-center">budget</span>
         {showSpent && (
-          <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide w-14 text-center">spent</span>
+          <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-14 text-center">spent</span>
         )}
-        <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide w-10 text-center">used</span>
+        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-10 text-center">used</span>
       </div>
     </div>
   );
