@@ -71,7 +71,7 @@ Flag any that look like shared expenses.`,
     text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
 
     const parsed = JSON.parse(text);
-    const suggestions: SplitSuggestion[] = Array.isArray(parsed)
+    const valid: SplitSuggestion[] = Array.isArray(parsed)
       ? parsed.filter(
           (s: unknown) =>
             s &&
@@ -82,6 +82,9 @@ Flag any that look like shared expenses.`,
             "reason" in s
         )
       : [];
+    const suggestions = Array.from(
+      new Map(valid.map((s) => [s.transactionId, s])).values()
+    );
 
     cache.set(partnershipId, { suggestions, expiresAt: Date.now() + CACHE_TTL_MS });
     return suggestions;
