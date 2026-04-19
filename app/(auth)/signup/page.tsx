@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { signupAction } from "./actions";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillInviteCode = searchParams.get("invite") ?? "";
@@ -38,7 +38,6 @@ export default function SignupPage() {
       return;
     }
 
-    // Auto sign in after signup
     const signInResult = await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
@@ -54,6 +53,71 @@ export default function SignupPage() {
   }
 
   return (
+    <form onSubmit={handleSubmit}>
+      <CardContent className="space-y-4">
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">
+            {error}
+          </p>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input id="name" name="name" placeholder="Your name" required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="At least 8 characters"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="inviteCode">
+            Partner&apos;s invite code{" "}
+            <span className="text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Input
+            id="inviteCode"
+            name="inviteCode"
+            placeholder="e.g. BLUE42"
+            className="uppercase tracking-widest"
+            defaultValue={prefillInviteCode.toUpperCase()}
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave blank to start a new partnership and invite your partner later.
+          </p>
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col gap-3">
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Creating account…" : "Create account"}
+        </Button>
+        <p className="text-sm text-muted-foreground text-center">
+          Already have an account?{" "}
+          <Link href="/login" className="underline underline-offset-4">
+            Sign in
+          </Link>
+        </p>
+      </CardFooter>
+    </form>
+  );
+}
+
+export default function SignupPage() {
+  return (
     <Card>
       <CardHeader className="space-y-1">
         <div className="flex items-center gap-2 mb-2">
@@ -67,66 +131,9 @@ export default function SignupPage() {
           Start managing finances together — or enter a partner&apos;s invite code to join them.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">
-              {error}
-            </p>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" placeholder="Your name" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="At least 8 characters"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="inviteCode">
-              Partner&apos;s invite code{" "}
-              <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <Input
-              id="inviteCode"
-              name="inviteCode"
-              placeholder="e.g. BLUE42"
-              className="uppercase tracking-widest"
-              defaultValue={prefillInviteCode.toUpperCase()}
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave blank to start a new partnership and invite your partner later.
-            </p>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account…" : "Create account"}
-          </Button>
-          <p className="text-sm text-muted-foreground text-center">
-            Already have an account?{" "}
-            <Link href="/login" className="underline underline-offset-4">
-              Sign in
-            </Link>
-          </p>
-        </CardFooter>
-      </form>
+      <Suspense fallback={null}>
+        <SignupForm />
+      </Suspense>
     </Card>
   );
 }
