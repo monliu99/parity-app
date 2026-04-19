@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Nav from "@/components/nav";
 import { MobileNav } from "@/components/mobile-nav";
+import { FeedbackWidget } from "@/components/feedback/feedback-widget";
 
 export default async function AppLayout({
   children,
@@ -13,6 +14,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex h-screen bg-background">
+      <FeedbackWidget />
       {/* Sidebar - hidden on mobile, visible on md and up */}
       <aside className="hidden md:flex w-56 bg-sidebar border-r border-border flex-shrink-0">
         <Nav user={{ name: session.user?.name, email: session.user?.email, image: session.user?.image }} />

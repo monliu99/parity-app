@@ -93,3 +93,17 @@ model Budget {
 
   @@unique([partnershipId, month, category])
 }
+
+model Feedback {
+  id            String    @id @default(cuid())
+  userId        String
+  partnershipId String?
+  rating        Int       // 1, 2, or 3
+  comment       String?
+  page          String    // pathname where submitted, e.g. "/dashboard"
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([page, createdAt])
+  @@index([createdAt])
+}

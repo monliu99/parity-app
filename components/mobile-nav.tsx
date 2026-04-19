@@ -21,6 +21,7 @@ import {
   Settings,
   LogOut,
   Menu,
+  Shield,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -111,6 +112,16 @@ export function MobileNav({ user }: MobileNavProps) {
               </div>
             </div>
             <div className="flex flex-col gap-0.5">
+              {user?.email === "mo@parity.app" && (
+                <Link
+                  href="/admin/feedback"
+                  onClick={handleNavClick}
+                  className="flex items-center gap-2.5 px-2 py-2 text-sm text-foreground hover:bg-secondary rounded-md transition-colors"
+                >
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                  Admin
+                </Link>
+              )}
               <Link
                 href="/settings"
                 onClick={handleNavClick}

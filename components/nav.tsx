@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   ChevronUp,
+  Shield,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -102,6 +103,16 @@ export default function Nav({ user }: NavProps) {
 
             {/* Actions */}
             <div className="py-1">
+              {user?.email === "mo@parity.app" && (
+                <Link
+                  href="/admin/feedback"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full"
+                >
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                  Admin
+                </Link>
+              )}
               <Link
                 href="/settings"
                 onClick={() => setProfileOpen(false)}
