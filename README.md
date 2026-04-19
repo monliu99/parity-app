@@ -1,36 +1,143 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Parity
+
+A shared financial operating system for couples. Parity gives partners a unified, real-time view of their financial picture and uses AI to surface what matters, prompt the right conversations, and reduce the mental load of managing money together.
+
+**Production:** [withparity.vercel.app](https://withparity.vercel.app)
+
+---
+
+## Stack
+
+- **Framework:** Next.js 16 (App Router) + TypeScript
+- **Styling:** Tailwind CSS 4 + shadcn/ui (base-ui v4)
+- **Database:** Prisma 7 + Neon (PostgreSQL)
+- **Auth:** NextAuth v5 (JWT, credentials provider)
+- **AI:** Anthropic SDK (Claude Haiku) — categorization, insights, chat, budget
+- **Deployment:** Vercel
+
+---
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # starts on localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env.local` file:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+AUTH_SECRET=
+NEXTAUTH_URL=http://localhost:3000
+ANTHROPIC_API_KEY=
+DATABASE_URL="postgresql://..."   # Neon connection string
+```
 
-## Learn More
+### Demo accounts
 
-To learn more about Next.js, take a look at the following resources:
+| Email | Password | Role |
+|---|---|---|
+| `mo@parity.app` | `password` | Partner 1 |
+| `andrew@parity.app` | `password` | Partner 2 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Invite code: `DEMO42`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Commands
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run dev                           # Dev server on localhost:3000
+npm run build                         # prisma generate + next build
+npm run lint                          # ESLint
+npx tsc --noEmit                      # Type check
+npx prisma generate                   # Regenerate Prisma client after schema changes
+npx prisma studio                     # DB browser UI at localhost:5555
+npx tsx scripts/seed.ts               # Seed demo data
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> **Note:** `prisma migrate dev` tends to hang in this environment. Apply schema changes via raw SQL in the Neon console, then run `prisma generate`.
+
+---
+
+## Project Structure
+
+```
+app/
+  (auth)/          # login, signup — public, no nav
+  (app)/           # protected pages with sidebar nav
+    dashboard/     # AI synthesis + net worth + spending chart
+    accounts/      # account management
+    transactions/  # transaction list + AI categorization
+    budget/        # AI-generated monthly budgets
+    goals/         # savings goals
+    chat/          # AI chat with full financial context
+    settings/      # partnership settings + invite code
+    onboarding/    # 4-step wizard (account → txn → goal → invite partner)
+  admin/
+    feedback/      # feedback review (gated to mo@parity.app)
+  api/auth/        # NextAuth handler
+
+lib/
+  db.ts            # Prisma singleton (Neon adapter)
+  partnership.ts   # getPartnership() — used by all protected pages
+  onboarding.ts    # onboarding step logic
+  ai/
+    categorize.ts  # transaction categorization
+    insights.ts    # dashboard synthesis (1h cache)
+    chat.ts        # stateless chat with full context
+    budget.ts      # budget suggestions + next-month plan
+
+components/
+  nav.tsx          # desktop sidebar
+  mobile-nav.tsx   # mobile slide-out drawer
+  feedback/
+    feedback-widget.tsx   # floating feedback button (all app pages)
+```
+
+---
+
+## Key Concepts
+
+### Auth pattern
+Two layers:
+1. **Edge (`proxy.ts`):** redirects unauthenticated users to `/login`
+2. **Server (`getPartnership()`):** confirms session + scopes all DB queries to `partnershipId`
+
+> `proxy.ts` is Next.js 16's rename of `middleware.ts`. Do not create a `middleware.ts` — having both causes a server crash.
+
+### Viewer-relative ownership
+`ownerLabel` is stored from the *enterer's* perspective. To display "Mine" vs "Partner's", check `record.userId === currentUserId`. `JOINT` always displays as "Joint".
+
+### Signup flow
+Partner 1 signs up (no invite code) → creates User + Partnership. Partner 2 signs up with the 6-char invite code → joins the existing Partnership. Max 2 members enforced in `signup/actions.ts`. The signup page pre-fills the invite code from the `?invite=` URL param.
+
+### Feedback
+A floating widget on every authenticated page collects emoji ratings (😄/😐/😔) + page-specific questions. Responses stored in the `Feedback` table. Admin review at `/admin/feedback`.
+
+---
+
+## Data Model
+
+```
+User          id, email, name, passwordHash
+Partnership   id, inviteCode (6-char uppercase)
+Membership    userId + partnershipId (composite PK; max 2 per partnership)
+Account       id, partnershipId, userId, name, type, balance, institution
+Transaction   id, partnershipId, accountId, userId, ownerLabel, merchant, amount, category, date
+Goal          id, partnershipId, userId, ownerLabel, name, targetAmount, currentAmount, targetDate
+Budget        id, partnershipId, month (YYYY-MM), category, suggestedAmount, userAmount
+Feedback      id, userId, partnershipId, rating (1-3), comment, page, createdAt
+```
+
+---
+
+## Deployment
+
+```bash
+vercel --prod    # deploy to production
+```
+
+Both `NEXTAUTH_URL` and `AUTH_URL` must be set to `https://withparity.vercel.app` in Vercel env vars — never a per-deployment preview URL.
