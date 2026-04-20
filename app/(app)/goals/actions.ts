@@ -289,7 +289,7 @@ export async function addGoalContribution(goalId: string, amount: number, accoun
 
     // Verify goal exists and belongs to partnership
     const goal = await db.goal.findFirst({
-      where: { id, partnershipId: partnership.id },
+      where: { id: goalId, partnershipId: partnership.id },
     });
 
     if (!goal) {
@@ -382,7 +382,7 @@ export async function addGoalContribution(goalId: string, amount: number, accoun
 
     // Update goal current amount
     await db.goal.updateMany({
-      where: { id, partnershipId: partnership.id },
+      where: { id: goalId, partnershipId: partnership.id },
       data: { currentAmount: newTotal },
     });
 
