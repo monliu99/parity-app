@@ -116,7 +116,7 @@ export function TransactionForm({ accounts, trigger, currentUserId, transaction 
               <Label>Account</Label>
               <Select
                 value={accountId}
-                onValueChange={handleAccountChange}
+                onValueChange={(v) => v && handleAccountChange(v)}
               >
                 <SelectTrigger>
                   <SelectValue>
