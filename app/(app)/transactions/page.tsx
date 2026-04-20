@@ -30,8 +30,8 @@ function formatCurrencyShort(amount: number) {
 
 function formatDateFull(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
   }).format(new Date(date));
 }
@@ -164,7 +164,7 @@ export default async function TransactionsPage() {
               <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-1">
                 Total Income
               </p>
-              <p className="text-3xl font-bold tabular-nums text-emerald-600 leading-none">
+              <p className="text-3xl font-bold tabular-nums text-moss leading-none">
                 {formatCurrencyShort(totalIncome)}
               </p>
             </CardContent>
@@ -235,7 +235,7 @@ export default async function TransactionsPage() {
                         {/* Right: amount */}
                         <span
                           className={`text-sm font-semibold tabular-nums ${
-                            isIncome ? "text-emerald-600" : "text-foreground"
+                            isIncome ? "text-moss" : "text-foreground"
                           }`}
                         >
                           {isIncome ? "+" : ""}{formatCurrency(tx.amount)}

@@ -33,7 +33,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function getMonthLabel(offset: number): string {
   const date = new Date();
   date.setMonth(date.getMonth() - offset);
-  return date.toLocaleDateString("en-US", { month: "short" });
+  return date.toLocaleDateString("en-US", { month: "long" });
 }
 
 export default async function DashboardPage() {
@@ -87,14 +87,20 @@ export default async function DashboardPage() {
       ? `${myName}'s Dashboard`
       : "Dashboard";
 
-  // Net worth
-  const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
-  const mineTotal = accounts
-    .filter((a) => a.userId === userId || (!a.userId && a.ownerLabel === "MINE"))
-    .reduce((sum, a) => sum + a.balance, 0);
-  const partnerTotal = accounts
-    .filter((a) => a.userId !== userId && (a.userId || a.ownerLabel === "PARTNER"))
-    .reduce((sum, a) => sum + a.balance, 0);
+  // Net worth — properly handle joint accounts
+  // Joint accounts: userId is null (shared between partners)
+  const jointAccounts = accounts.filter((a) => a.userId === null);
+  const jointTotal = jointAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+  // Individual accounts: owned by specific user
+  const myAccounts = accounts.filter((a) => a.userId === userId);
+  const mineTotal = myAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+  const partnerAccounts = accounts.filter((a) => a.userId !== null && a.userId !== userId);
+  const partnerTotal = partnerAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+  // Combined net worth = joint + mine + partner (counted once)
+  const combinedNetWorth = jointTotal + mineTotal + partnerTotal;
 
   // Current + previous month transactions
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -239,117 +245,151 @@ export default async function DashboardPage() {
           <SynthesisCard insight={synthesis} />
 
           {/* Top Row: Net Worth, Cash Flow, Budget Status */}
-          <div className="grid gap-4 md:grid-cols-3 items-stretch">
+          <div className="grid gap-5 md:grid-cols-3 items-stretch">
             {/* Net Worth */}
-            <Card className="shadow-card">
-              <CardContent className="pt-5 pb-5 h-full flex flex-col justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-2">
+            <Card className="shadow-card overflow-hidden">
+              <CardContent className="p-0 h-full flex flex-col">
+                {/* Header */}
+                <div className="px-5 pt-5 pb-4">
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
                     Combined Net Worth
                   </p>
-                  <p className="text-5xl font-bold text-foreground leading-none tabular-nums">
-                    {formatCurrency(netWorth)}
+                  <p className="text-3xl font-bold text-foreground leading-tight tabular-nums mt-2">
+                    {formatCurrency(combinedNetWorth)}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
+
+                {/* Mine / Partner breakdown */}
+                <div className="px-5 py-4 grid grid-cols-2 gap-4 border-b border-border/50">
                   <div>
-                    <p className="text-xs text-muted-foreground">Mine</p>
-                    <p className="text-sm font-semibold tabular-nums">
+                    <p className="text-xs text-muted-foreground mb-1">Mine</p>
+                    <p className="text-sm font-semibold tabular-nums text-foreground">
                       {formatCurrency(mineTotal)}
                     </p>
                   </div>
-                  <div className="w-px h-8 bg-border" />
                   <div>
-                    <p className="text-xs text-muted-foreground">{partnerName}&apos;s</p>
-                    <p className="text-sm font-semibold tabular-nums">
+                    <p className="text-xs text-muted-foreground mb-1">{partnerName}&apos;s</p>
+                    <p className="text-sm font-semibold tabular-nums text-foreground">
                       {formatCurrency(partnerTotal)}
                     </p>
                   </div>
                 </div>
-                {(biggestGain || biggestDrop) && (
-                  <div className="mt-3 pt-3 border-t border-border space-y-1">
-                    {biggestGain && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3 text-emerald-600" />
-                        +{formatCurrency(biggestGain.change)} in {biggestGain.account.name}
-                      </p>
-                    )}
-                    {biggestDrop && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <TrendingDown className="h-3 w-3 text-amber-600" />
-                        {formatCurrency(biggestDrop.change)} in {biggestDrop.account.name}
-                      </p>
-                    )}
-                  </div>
-                )}
+
+                {/* Account highlights */}
+                <div className="px-5 py-3 flex-1">
+                  {(biggestGain || biggestDrop) && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Biggest change this month</p>
+                      <div className="space-y-2">
+                        {biggestGain && (
+                          <div className="flex items-center gap-2 rounded-md px-3 py-2">
+                            <span className="text-xs text-moss-dark dark:text-moss font-medium tabular-nums">
+                              ↑ {formatCurrency(biggestGain.change)}
+                            </span>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {biggestGain.account.name}
+                            </span>
+                          </div>
+                        )}
+                        {biggestDrop && (
+                          <div className="flex items-center gap-2 rounded-md px-3 py-2">
+                            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium tabular-nums">
+                              ↓ {formatCurrency(Math.abs(biggestDrop.change))}
+                            </span>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {biggestDrop.account.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
             {/* Cash Flow */}
-            <Card className="shadow-card">
-              <CardContent className="pt-5 pb-5 h-full">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3">
-                  Cash Flow This Month
-                </p>
-                <div className="space-y-3">
+            <Card className="shadow-card overflow-hidden">
+              <CardContent className="p-0 h-full flex flex-col">
+                {/* Header */}
+                <div className="px-5 pt-5 pb-3">
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
+                    Cash Flow This Month
+                  </p>
+                </div>
+
+                {/* Income row */}
+                <div className="px-5 py-3 border-b border-border/50">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Income</span>
-                    <div className="flex items-center gap-2">
-                      {incomeChange !== 0 && (
-                        <span
-                          className={`text-xs flex items-center gap-0.5 ${
-                            incomeChange > 0 ? "text-emerald-600" : "text-amber-600"
-                          }`}
-                        >
-                          {incomeChange > 0 ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                          {Math.abs(incomeChange)}%
-                        </span>
-                      )}
+                    <div className="text-right">
                       <span className="text-sm font-semibold tabular-nums text-foreground">
                         {formatCurrency(currentMonthIncome)}
                       </span>
+                      <p className={`text-xs tabular-nums mt-0.5 ${
+                        incomeChange === 0
+                          ? "text-muted-foreground"
+                          : incomeChange > 0
+                            ? "text-moss-dark dark:text-moss"
+                            : "text-amber-700 dark:text-amber-400"
+                      }`}>
+                        {incomeChange === 0 ? (
+                          "Same as last month"
+                        ) : (
+                          <>{incomeChange > 0 ? "↑" : "↓"} {Math.abs(incomeChange)}% vs last month</>
+                        )}
+                      </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Spending row */}
+                <div className="px-5 py-3 border-b border-border/50">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Spending</span>
-                    <div className="flex items-center gap-2">
-                      {spendingChange !== 0 && (
-                        <span
-                          className={`text-xs flex items-center gap-0.5 ${
-                            spendingChange < 0 ? "text-emerald-600" : "text-amber-600"
-                          }`}
-                        >
-                          {spendingChange < 0 ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                          {Math.abs(spendingChange)}%
-                        </span>
-                      )}
+                    <div className="text-right">
                       <span className="text-sm font-semibold tabular-nums text-foreground">
                         {formatCurrency(currentMonthSpending)}
                       </span>
+                      <p className={`text-xs tabular-nums mt-0.5 ${
+                        spendingChange === 0
+                          ? "text-muted-foreground"
+                          : spendingChange < 0
+                            ? "text-moss-dark dark:text-moss"
+                            : "text-amber-700 dark:text-amber-400"
+                      }`}>
+                        {spendingChange === 0 ? (
+                          "Same as last month"
+                        ) : (
+                          <>{spendingChange > 0 ? "↑" : "↓"} {Math.abs(spendingChange)}% vs last month</>
+                        )}
+                      </p>
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-border">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Saved</span>
-                      <span
-                        className={`text-sm font-bold tabular-nums ${
-                          currentMonthSavings >= 0 ? "text-emerald-600" : "text-amber-600"
-                        }`}
-                      >
-                        {formatCurrency(Math.abs(currentMonthSavings))}
-                      </span>
+                </div>
+
+                {/* Savings highlight */}
+                <div className="px-5 py-4 mt-auto">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">Saved</span>
+                    <span
+                      className={`text-sm font-bold tabular-nums ${
+                        currentMonthSavings >= 0 ? "text-moss" : "text-amber-700"
+                      }`}
+                    >
+                      {formatCurrency(Math.abs(currentMonthSavings))}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-moss"
+                        style={{ width: `${Math.min(Math.max(savingsRate, 0), 100)}%` }}
+                      />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {savingsRate >= 0 ? savingsRate : 0}% savings rate
-                    </p>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {savingsRate >= 0 ? savingsRate : 0}%
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -357,51 +397,81 @@ export default async function DashboardPage() {
 
             {/* Budget Status */}
             {hasBudgets ? (
-              <Card className="shadow-card">
-                <CardContent className="pt-5 pb-5 h-full">
-                  <div className="flex items-center justify-between mb-3">
+              <Card className="shadow-card overflow-hidden">
+                <CardContent className="p-0 h-full flex flex-col">
+                  {/* Header */}
+                  <div className="px-5 pt-5 pb-3 flex items-center justify-between">
                     <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
                       Budget Status
                     </p>
                     <Link
                       href="/budget"
-                      className="text-xs text-primary hover:underline"
+                      className="text-xs text-primary hover:underline font-medium"
                     >
                       Details →
                     </Link>
                   </div>
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-muted-foreground">
+
+                  {/* Main progress */}
+                  <div className="px-5 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-muted-foreground">
                         {getMonthLabel(0)}
                       </span>
                       <span
-                        className={`text-xs font-medium tabular-nums ${
+                        className={`text-sm font-bold tabular-nums ${
                           budgetPct > 100
-                            ? "text-amber-600"
-                            : budgetPct > 80
-                              ? "text-amber-500"
-                              : "text-muted-foreground"
+                            ? "text-amber-700"
+                            : budgetPct >= 80
+                              ? "text-amber-600"
+                              : "text-moss"
                         }`}
                       >
-                        {budgetPct}% used
+                        {budgetPct}%
                       </span>
                     </div>
-                    <Progress value={Math.min(budgetPct, 100)} className="h-2" />
+                    <Progress
+                      value={Math.min(budgetPct, 100)}
+                      className="h-2.5"
+                      variant={
+                        budgetPct > 100
+                          ? "amber-dark"
+                          : budgetPct >= 80
+                            ? "amber-light"
+                            : "moss"
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formatCurrency(totalActual)} of {formatCurrency(totalBudgeted)} budgeted
+                    </p>
                   </div>
+
+                  {/* Categories over budget count */}
+                  <div className="px-5 py-2 border-t border-border/50">
+                    <p className={`text-xs font-medium ${
+                      overBudgetCategories.length > 0
+                        ? "text-amber-700"
+                        : "text-moss"
+                    }`}>
+                      {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "category" : "categories"} over budget
+                    </p>
+                  </div>
+
+                  {/* Over budget categories list */}
                   {overBudgetCategories.length > 0 && (
-                    <div className="pt-2 border-t border-border">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {overBudgetCategories.length} category
-                        {overBudgetCategories.length > 1 ? "ies" : ""} over budget
-                      </p>
-                      <div className="space-y-1">
-                        {overBudgetCategories.slice(0, 2).map((b) => (
-                          <p key={b.category} className="text-xs text-amber-600">
-                            {b.category}: {formatCurrency(b.actual)} /{" "}
-                            {formatCurrency(b.budgeted)}
-                          </p>
-                        ))}
+                    <div className="mt-auto px-5 py-3 border-t border-border/50">
+                      <div className="space-y-2">
+                        {overBudgetCategories.slice(0, 3).map((b) => {
+                          const overPct = Math.round(((b.actual - b.budgeted) / b.budgeted) * 100);
+                          return (
+                            <div key={b.category} className="flex items-center justify-between">
+                              <span className="text-xs text-foreground">{b.category}</span>
+                              <span className="text-xs font-medium tabular-nums text-amber-700">
+                                +{formatCurrency(b.actual - b.budgeted)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

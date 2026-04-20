@@ -29,7 +29,7 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Your Partnership</CardTitle>
+          <CardTitle className="text-sm font-bold">Your Partnership</CardTitle>
           <CardDescription>
             Share your invite code to connect with your partner.
           </CardDescription>
@@ -51,7 +51,7 @@ export default async function SettingsPage() {
                 </p>
               </>
             ) : (
-              <p className="text-sm text-amber-600 font-medium">
+              <p className="text-sm text-amber-700 font-medium">
                 Not joined yet
               </p>
             )}

@@ -11,7 +11,7 @@ export default function NotFound() {
           <div className="flex justify-center">
             <Home className="h-12 w-12 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-bold">Page not found</h2>
+          <h2 className="text-sm font-bold">Page not found</h2>
           <p className="text-muted-foreground">
             Sorry, we couldn&apos;t find the page you&apos;re looking for.
           </p>

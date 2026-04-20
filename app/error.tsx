@@ -24,7 +24,7 @@ export default function Error({
           <div className="flex justify-center">
             <AlertTriangle className="h-12 w-12 text-destructive" />
           </div>
-          <h2 className="text-xl font-bold">Something went wrong!</h2>
+          <h2 className="text-sm font-bold">Something went wrong!</h2>
           <p className="text-muted-foreground">
             {error.message || "An unexpected error occurred. Please try again."}
           </p>

@@ -126,7 +126,7 @@ export default function SignupPage() {
             Parity
           </span>
         </div>
-        <CardTitle className="text-xl">Create your account</CardTitle>
+        <CardTitle className="text-sm font-bold">Create your account</CardTitle>
         <CardDescription>
           Start managing finances together — or enter a partner&apos;s invite code to join them.
         </CardDescription>

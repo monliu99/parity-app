@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, IBM_Plex_Sans } from "next/font/google";
+import { Playfair_Display, Inter } from "next/font/google";
 import ClientSessionProvider from "@/components/session-provider";
 import "./globals.css";
 
@@ -10,10 +10,10 @@ const playfair = Playfair_Display({
   style: ["normal", "italic"],
 });
 
-const ibmPlex = IBM_Plex_Sans({
-  variable: "--font-ibm-plex",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${ibmPlex.variable} h-full antialiased`}
+      className={`${playfair.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ClientSessionProvider>{children}</ClientSessionProvider>

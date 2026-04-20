@@ -51,7 +51,7 @@ export default function LoginPage() {
             Parity
           </span>
         </div>
-        <CardTitle className="text-xl">Welcome back</CardTitle>
+        <CardTitle className="text-sm font-bold">Welcome back</CardTitle>
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>

@@ -63,7 +63,7 @@ export async function getSpendingInsights(
     current: g.currentAmount,
     pct: Math.round((g.currentAmount / g.targetAmount) * 100),
     targetDate: g.targetDate
-      ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })
       : null,
   }));
 
@@ -180,26 +180,29 @@ export async function getDashboardSynthesis(
     name: g.name,
     pct: g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0,
     targetDate: g.targetDate
-      ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })
       : null,
   }));
 
   try {
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
-      system: `You are Parity's AI assistant for couples. Write ONE short narrative summarizing this couple's current financial picture.
+      max_tokens: 300,
+      system: `You are Parity's AI assistant for couples. Write 2-3 conversational bullet points summarizing their financial picture.
 
 Rules:
-- Use "you" or "you both" — never "your partner".
-- 2-3 sentences, 35-50 words total.
-- Neutral observations, never judgments or accusations.
-- Forward-looking when natural ("at this pace…", "you're on track to…").
-- Synthesize across: spending vs last month, savings rate, goal pacing, and budget status. Don't list all four — pick the 2-3 most signal-rich observations and weave them together naturally.
-- No bullet points, no headings — flowing prose only.
-- No emojis, no markdown.
+- Use "you" or "you both" — never "your partner"
+- 2-3 bullets, 10-20 words each — write like a human talking to a friend
+- Neutral observations, never judgments
+- Forward-looking when natural
+- Weave together: spending vs last month, savings rate, goal pacing, budget status
+- EACH bullet must start with a label in brackets: [Spending], [Savings], [Goals], [Budget]
+- MUST separate each bullet with exactly this:  |||
 
-Return ONLY the narrative text, nothing else.`,
+Example format:
+[Spending] You're spending a bit less on dining compared to last month, nice work. ||| [Savings] At this pace, you're on track to hit 20% savings by summer. ||| [Goals] The Italy trip is coming together nicely — you're 40% of the way there.
+
+Return ONLY the bullets separated by |||, nothing else.`,
       messages: [
         {
           role: "user",

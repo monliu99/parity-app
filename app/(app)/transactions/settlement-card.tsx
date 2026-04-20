@@ -42,7 +42,7 @@ function PayModal({ service, partnerName, amount, youOwe, onClose }: PayModalPro
             <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
               {service}
             </p>
-            <p className="text-lg font-bold mt-0.5">
+            <p className="text-sm font-bold mt-0.5">
               {verb} {formatCurrency(amount)}
             </p>
           </div>

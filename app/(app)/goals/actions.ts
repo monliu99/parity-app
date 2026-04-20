@@ -16,6 +16,8 @@ export async function createGoal(formData: FormData) {
     const targetDateStr = formData.get("targetDate") as string;
     const ownerLabel = (formData.get("ownerLabel") as string) || "JOINT";
     const notes = (formData.get("notes") as string) || null;
+    const myAllocationStr = formData.get("myAllocation") as string || "50";
+    const partnerAllocationStr = formData.get("partnerAllocation") as string || "50";
 
     // Validation
     if (!name?.trim()) {
@@ -39,6 +41,18 @@ export async function createGoal(formData: FormData) {
       return { error: "Please select a valid goal type" };
     }
 
+    // Validate allocations for joint goals
+    if (ownerLabel === "JOINT") {
+      const myAllocation = parseInt(myAllocationStr);
+      const partnerAllocation = parseInt(partnerAllocationStr);
+      if (isNaN(myAllocation) || isNaN(partnerAllocation)) {
+        return { error: "Allocation percentages must be numbers" };
+      }
+      if (myAllocation + partnerAllocation !== 100) {
+        return { error: "Allocations must add up to 100%" };
+      }
+    }
+
     let targetDate: Date | null = null;
     if (targetDateStr) {
       targetDate = new Date(targetDateStr);
@@ -56,7 +70,16 @@ export async function createGoal(formData: FormData) {
     });
     isFirst = existingCount === 0;
 
-    await (db.goal.create as Function)({
+    // Get partnership members for allocations
+    const members = await db.membership.findMany({
+      where: { partnershipId: partnership.id },
+      select: { userId: true },
+    });
+
+    const myUserId = userId;
+    const partnerUserId = members.find((m) => m.userId !== userId)?.userId;
+
+    const goal = await (db.goal.create as Function)({
       data: {
         partnershipId: partnership.id,
         userId: ownerLabel === "PERSONAL" ? userId : null,
@@ -68,6 +91,16 @@ export async function createGoal(formData: FormData) {
         notes,
       },
     });
+
+    // Create allocation records for joint goals
+    if (ownerLabel === "JOINT" && partnerUserId) {
+      await (db.goalAllocation.createMany as Function)({
+        data: [
+          { goalId: goal.id, userId: myUserId, percentage: parseInt(myAllocationStr) },
+          { goalId: goal.id, userId: partnerUserId, percentage: parseInt(partnerAllocationStr) },
+        ],
+      });
+    }
 
     revalidatePath("/goals");
     revalidatePath("/dashboard");
@@ -83,7 +116,7 @@ export async function createGoal(formData: FormData) {
 
 export async function updateGoal(id: string, formData: FormData) {
   try {
-    const { partnership } = await getPartnership();
+    const { partnership, userId } = await getPartnership();
 
     // Verify goal exists and belongs to partnership
     const existing = await db.goal.findFirst({
@@ -99,6 +132,8 @@ export async function updateGoal(id: string, formData: FormData) {
     const targetDateStr = formData.get("targetDate") as string;
     const ownerLabel = (formData.get("ownerLabel") as string) || "JOINT";
     const notes = (formData.get("notes") as string) || null;
+    const myAllocationStr = formData.get("myAllocation") as string || "50";
+    const partnerAllocationStr = formData.get("partnerAllocation") as string || "50";
 
     // Validation
     if (!name?.trim()) {
@@ -113,6 +148,18 @@ export async function updateGoal(id: string, formData: FormData) {
     }
     if (!["JOINT", "PERSONAL"].includes(ownerLabel)) {
       return { error: "Please select a valid goal type" };
+    }
+
+    // Validate allocations for joint goals
+    if (ownerLabel === "JOINT") {
+      const myAllocation = parseInt(myAllocationStr);
+      const partnerAllocation = parseInt(partnerAllocationStr);
+      if (isNaN(myAllocation) || isNaN(partnerAllocation)) {
+        return { error: "Allocation percentages must be numbers" };
+      }
+      if (myAllocation + partnerAllocation !== 100) {
+        return { error: "Allocations must add up to 100%" };
+      }
     }
 
     let targetDate: Date | null = null;
@@ -133,6 +180,31 @@ export async function updateGoal(id: string, formData: FormData) {
         notes,
       },
     });
+
+    // Update allocation records for joint goals
+    if (ownerLabel === "JOINT") {
+      const members = await db.membership.findMany({
+        where: { partnershipId: partnership.id },
+        select: { userId: true },
+      });
+
+      const myUserId = userId;
+      const partnerUserId = members.find((m) => m.userId !== userId)?.userId;
+
+      if (partnerUserId) {
+        // Delete existing allocations and create new ones
+        await db.goalAllocation.deleteMany({
+          where: { goalId: id },
+        });
+
+        await (db.goalAllocation.createMany as Function)({
+          data: [
+            { goalId: id, userId: myUserId, percentage: parseInt(myAllocationStr) },
+            { goalId: id, userId: partnerUserId, percentage: parseInt(partnerAllocationStr) },
+          ],
+        });
+      }
+    }
 
     revalidatePath("/goals");
     revalidatePath("/dashboard");
@@ -206,6 +278,121 @@ export async function deleteGoal(id: string) {
     console.error("Error deleting goal:", error);
     return {
       error: error instanceof Error ? error.message : "Failed to delete goal",
+    };
+  }
+}
+
+export async function addGoalContribution(goalId: string, amount: number, accountId: string) {
+  let isFirst = false;
+  try {
+    const { partnership, userId } = await getPartnership();
+
+    // Verify goal exists and belongs to partnership
+    const goal = await db.goal.findFirst({
+      where: { id, partnershipId: partnership.id },
+    });
+
+    if (!goal) {
+      return { error: "Goal not found" };
+    }
+
+    if (isNaN(amount) || amount <= 0) {
+      return { error: "Amount must be positive" };
+    }
+
+    const newTotal = goal.currentAmount + amount;
+    if (newTotal > goal.targetAmount) {
+      return { error: "Amount would exceed goal target" };
+    }
+
+    // Get the account to determine ownership
+    const account = await db.account.findFirst({
+      where: { id: accountId, partnershipId: partnership.id },
+    });
+
+    if (!account) {
+      return { error: "Account not found" };
+    }
+
+    // Get both partnership members
+    const members = await db.membership.findMany({
+      where: { partnershipId: partnership.id },
+      select: { userId: true },
+    });
+
+    if (members.length !== 2) {
+      return { error: "Joint goals require exactly two partners" };
+    }
+
+    const myUserId = userId;
+    const partnerUserId = members.find((m) => m.userId !== userId)?.userId || null;
+
+    if (!partnerUserId) {
+      return { error: "Partner not found" };
+    }
+
+    // Determine contribution amounts based on account ownership
+    let myContribution = 0;
+    let partnerContribution = 0;
+
+    if (account.userId === null) {
+      // Joint account: split according to goal's allocation percentages
+      const allocations = await db.goalAllocation.findMany({
+        where: { goalId },
+      });
+
+      if (allocations.length === 2) {
+        const myAllocation = allocations.find((a) => a.userId === myUserId);
+        const partnerAlloc = allocations.find((a) => a.userId === partnerUserId);
+
+        if (myAllocation && partnerAlloc) {
+          myContribution = (amount * myAllocation.percentage) / 100;
+          partnerContribution = (amount * partnerAlloc.percentage) / 100;
+        } else {
+          // Fallback to 50/50 if allocations not found
+          myContribution = amount / 2;
+          partnerContribution = amount / 2;
+        }
+      } else {
+        // Fallback to 50/50 if allocations not set
+        myContribution = amount / 2;
+        partnerContribution = amount / 2;
+      }
+    } else if (account.userId === myUserId) {
+      // My account: 100% me
+      myContribution = amount;
+      partnerContribution = 0;
+    } else {
+      // Partner's account: 100% partner
+      myContribution = 0;
+      partnerContribution = amount;
+    }
+
+    // Create contribution records
+    await (db.goalContribution.createMany as Function)({
+      data: [
+        ...(myContribution > 0
+          ? [{ goalId, userId: myUserId, amount: myContribution }]
+          : []),
+        ...(partnerContribution > 0
+          ? [{ goalId, userId: partnerUserId, amount: partnerContribution }]
+          : []),
+      ],
+    });
+
+    // Update goal current amount
+    await db.goal.updateMany({
+      where: { id, partnershipId: partnership.id },
+      data: { currentAmount: newTotal },
+    });
+
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Error adding goal contribution:", error);
+    return {
+      error: error instanceof Error ? error.message : "Failed to add contribution",
     };
   }
 }

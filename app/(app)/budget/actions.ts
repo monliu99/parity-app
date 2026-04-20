@@ -126,7 +126,7 @@ export async function generateNextMonthPlanAction(userContext?: string): Promise
       targetAmount: g.targetAmount,
       currentAmount: g.currentAmount,
       targetDate: g.targetDate
-        ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+        ? new Date(g.targetDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })
         : null,
     }));
 

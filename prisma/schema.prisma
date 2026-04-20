@@ -8,12 +8,14 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  name          String
-  passwordHash  String
-  createdAt     DateTime     @default(now())
-  memberships   Membership[]
+  id             String              @id @default(cuid())
+  email          String              @unique
+  name           String
+  passwordHash   String
+  createdAt      DateTime            @default(now())
+  memberships    Membership[]
+  contributions  GoalContribution[]
+  goalAllocations GoalAllocation[]
 }
 
 model Partnership {
@@ -68,17 +70,47 @@ model Transaction {
 }
 
 model Goal {
-  id            String      @id @default(cuid())
+  id            String              @id @default(cuid())
   partnershipId String
-  userId        String?     // null = joint goal, set = personal goal owner
-  ownerLabel    String      @default("JOINT") // "JOINT" | "PERSONAL"
+  userId        String?             // null = joint goal, set = personal goal owner
+  ownerLabel    String              @default("JOINT") // "JOINT" | "PERSONAL"
   name          String
   targetAmount  Float
-  currentAmount Float       @default(0)
+  currentAmount Float               @default(0)
   targetDate    DateTime?
   notes         String?
-  createdAt     DateTime    @default(now())
-  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  createdAt     DateTime            @default(now())
+  partnership   Partnership         @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+  allocations   GoalAllocation[]
+}
+
+model GoalContribution {
+  id        String   @id @default(cuid())
+  goalId    String
+  userId    String
+  amount    Float
+  createdAt DateTime @default(now())
+
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([goalId])
+  @@index([userId])
+}
+
+model GoalAllocation {
+  id         String   @id @default(cuid())
+  goalId     String
+  userId     String
+  percentage Int      // percentage of total goal this user is obligated for (0-100)
+
+  goal       Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([goalId, userId])
+  @@index([goalId])
+  @@index([userId])
 }
 
 model Budget {

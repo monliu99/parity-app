@@ -129,7 +129,7 @@ export function OnboardingFlow({
           </div>
 
           <div className="space-y-3 text-center">
-            <h2 className="text-xl font-bold">Invite your partner</h2>
+            <h2 className="text-sm font-bold">Invite your partner</h2>
             <p className="text-muted-foreground">
               Parity works best together. Share your invite link so your
               partner can join.
@@ -226,7 +226,7 @@ function OnboardingStepCard({
         </div>
 
         <div className="space-y-3 text-center">
-          <h2 className="text-xl font-bold">{title}</h2>
+          <h2 className="text-sm font-bold">{title}</h2>
           <p className="text-muted-foreground">{description}</p>
         </div>
 

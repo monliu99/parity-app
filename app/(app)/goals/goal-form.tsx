@@ -17,13 +17,32 @@ import type { Goal } from "@/app/generated/prisma/client";
 interface GoalFormProps {
   trigger: React.ReactElement;
   goal?: Goal;
+  existingAllocations?: { userId: string; percentage: number }[];
+  currentUserId?: string;
+  partnerUserId?: string;
 }
 
-export function GoalForm({ trigger, goal }: GoalFormProps) {
+export function GoalForm({
+  trigger,
+  goal,
+  existingAllocations,
+  currentUserId,
+  partnerUserId,
+}: GoalFormProps) {
   const isEditing = !!goal;
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Track goal type and allocations
+  const [goalType, setGoalType] = useState(goal?.ownerLabel ?? "JOINT");
+  const [myAllocation, setMyAllocation] = useState(() => {
+    if (existingAllocations) {
+      const mine = existingAllocations.find((a) => a.userId === currentUserId);
+      return mine?.percentage ?? 50;
+    }
+    return 50;
+  });
 
   const targetDateValue = goal?.targetDate
     ? new Date(goal.targetDate).toISOString().split("T")[0]
@@ -33,6 +52,9 @@ export function GoalForm({ trigger, goal }: GoalFormProps) {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
+    // Add allocations to form data
+    formData.set("myAllocation", String(myAllocation));
+    formData.set("partnerAllocation", String(100 - myAllocation));
     startTransition(async () => {
       const result = isEditing
         ? await updateGoal(goal.id, formData)
@@ -66,12 +88,16 @@ export function GoalForm({ trigger, goal }: GoalFormProps) {
                 { value: "JOINT", label: "Joint", desc: "Shared with partner" },
                 { value: "PERSONAL", label: "Personal", desc: "Just for me" },
               ].map(({ value, label, desc }) => (
-                <label key={value} className="relative flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 has-[:checked]:border-ring has-[:checked]:bg-accent">
+                <label
+                  key={value}
+                  className="relative flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 has-[:checked]:border-ring has-[:checked]:bg-accent"
+                >
                   <input
                     type="radio"
                     name="ownerLabel"
                     value={value}
-                    defaultChecked={value === (goal?.ownerLabel ?? "JOINT")}
+                    defaultChecked={value === goalType}
+                    onChange={() => setGoalType(value)}
                     className="sr-only"
                   />
                   <span className="text-sm font-medium">{label}</span>
@@ -80,6 +106,34 @@ export function GoalForm({ trigger, goal }: GoalFormProps) {
               ))}
             </div>
           </div>
+          {goalType === "JOINT" && (
+            <div className="space-y-3 p-3 bg-secondary rounded-lg">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Obligation split
+              </Label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">You</Label>
+                  <span className="text-sm font-semibold">{myAllocation}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={myAllocation}
+                  onChange={(e) => setMyAllocation(parseInt(e.target.value))}
+                  className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-foreground"
+                />
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Partner</Label>
+                  <span className="text-sm font-semibold">{100 - myAllocation}%</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Drag to adjust how much each partner is obligated to contribute
+                </p>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Goal name</Label>
             <Input

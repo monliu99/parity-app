@@ -50,7 +50,7 @@ export function OnboardingStep({
 
           {/* Step content */}
           <div className="space-y-3 text-center">
-            <h2 className="text-xl font-bold">{title}</h2>
+            <h2 className="text-sm font-bold">{title}</h2>
             <p className="text-muted-foreground">{description}</p>
           </div>
 

@@ -48,16 +48,19 @@ export default async function AccountsPage() {
 
   const partnerMember = members.find((m) => m.userId !== userId);
 
-  // viewer-relative: account belongs to me if userId matches or (legacy) ownerLabel=MINE with no userId
-  const mine = accounts.filter(
-    (a) => (a as any).userId === userId || (!(a as any).userId && a.ownerLabel === "MINE")
-  );
-  const partnerAccounts = accounts.filter(
-    (a) => (a as any).userId !== userId && ((a as any).userId || a.ownerLabel === "PARTNER")
-  );
+  // Joint accounts: userId is null (shared between partners)
+  const jointAccounts = accounts.filter((a) => (a as any).userId === null);
+  const totalJoint = jointAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+  // My accounts: owned by me
+  const mine = accounts.filter((a) => (a as any).userId === userId);
   const totalMine = mine.reduce((sum, a) => sum + a.balance, 0);
+
+  // Partner's accounts: owned by partner
+  const partnerAccounts = accounts.filter((a) => (a as any).userId !== null && (a as any).userId !== userId);
   const totalPartner = partnerAccounts.reduce((sum, a) => sum + a.balance, 0);
-  const combined = totalMine + totalPartner;
+
+  const combined = totalJoint + totalMine + totalPartner;
 
   return (
     <div className="space-y-6">
@@ -93,17 +96,26 @@ export default async function AccountsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-6">
+          {/* Joint accounts section - full width */}
           <AccountGroup
-            label="Mine"
-            accounts={mine}
-            total={totalMine}
+            label="Joint"
+            accounts={jointAccounts}
+            total={totalJoint}
           />
-          <AccountGroup
-            label={partnerMember ? `${partnerMember.user.name}'s` : "Partner's"}
-            accounts={partnerAccounts}
-            total={totalPartner}
-          />
+          {/* Individual accounts - two columns below */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <AccountGroup
+              label="Mine"
+              accounts={mine}
+              total={totalMine}
+            />
+            <AccountGroup
+              label={partnerMember ? `${partnerMember.user.name}'s` : "Partner's"}
+              accounts={partnerAccounts}
+              total={totalPartner}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -130,7 +142,7 @@ function AccountGroup({
             </CardDescription>
           </div>
           {/* Total sits flush right, same size as label — same edge as individual balances below */}
-          <span className="text-sm font-bold tabular-nums">
+          <span className="text-base font-bold tabular-nums text-moss">
             {formatCurrency(total)}
           </span>
         </div>

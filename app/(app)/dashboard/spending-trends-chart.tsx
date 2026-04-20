@@ -3,7 +3,6 @@
 import {
   BarChart,
   Bar,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -11,7 +10,6 @@ import {
   Legend,
   CartesianGrid,
 } from "recharts";
-import { CATEGORY_CHART_COLORS, DEFAULT_CHART_COLOR } from "@/lib/category-colors";
 
 export interface MonthComparisonRow {
   category: string;
@@ -77,20 +75,14 @@ export function SpendingTrendsChart({ data }: SpendingTrendsChartProps) {
         />
         <Bar
           dataKey="lastMonth"
-          fill="#cbd5e1"
+          fill="oklch(0.942 0.01 155)"
           radius={[4, 4, 0, 0]}
         />
         <Bar
           dataKey="thisMonth"
+          fill="oklch(0.515 0.092 155)"
           radius={[4, 4, 0, 0]}
-        >
-          {data.map((row) => (
-            <Cell
-              key={row.category}
-              fill={CATEGORY_CHART_COLORS[row.category] || DEFAULT_CHART_COLOR}
-            />
-          ))}
-        </Bar>
+        />
       </BarChart>
     </ResponsiveContainer>
   );

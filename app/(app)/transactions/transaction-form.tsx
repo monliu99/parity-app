@@ -41,6 +41,23 @@ export function TransactionForm({ accounts, trigger, currentUserId, transaction 
     ? new Date(transaction.date).toISOString().split("T")[0]
     : today;
 
+  // Helper to get account ownership label
+  const getAccountLabel = (account: Account) => {
+    if ((account as any).userId === null) return "Joint";
+    if ((account as any).userId === currentUserId) return "Mine";
+    return "Partner's";
+  };
+
+  // When account changes, default ownerLabel to JOINT if it's a joint account
+  const handleAccountChange = (newAccountId: string) => {
+    setAccountId(newAccountId);
+    const selectedAccount = accounts.find((a) => a.id === newAccountId);
+    // Only auto-set ownerLabel for new transactions, not when editing
+    if (!isEditing && selectedAccount && (selectedAccount as any).userId === null) {
+      setOwnerLabel("JOINT");
+    }
+  };
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -99,7 +116,7 @@ export function TransactionForm({ accounts, trigger, currentUserId, transaction 
               <Label>Account</Label>
               <Select
                 value={accountId}
-                onValueChange={(v) => v && setAccountId(v)}
+                onValueChange={handleAccountChange}
               >
                 <SelectTrigger>
                   <SelectValue>
@@ -111,7 +128,7 @@ export function TransactionForm({ accounts, trigger, currentUserId, transaction 
                 <SelectContent>
                   {accounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.name} ({(a as any).userId === currentUserId ? "Mine" : "Partner's"})
+                      {a.name} ({getAccountLabel(a)})
                     </SelectItem>
                   ))}
                 </SelectContent>

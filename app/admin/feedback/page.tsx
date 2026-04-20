@@ -61,10 +61,10 @@ export default async function AdminFeedbackPage() {
 
   const avgColor =
     avgRating >= 2.5
-      ? "text-emerald-600"
+      ? "text-moss"
       : avgRating >= 1.5
       ? "text-foreground"
-      : "text-amber-600";
+      : "text-amber-700";
 
   return (
     <div className="space-y-8">

@@ -53,7 +53,7 @@ export function SplitSuggestionsPanel({ suggestions }: SplitSuggestionsPanelProp
           onClick={() => setExpanded((e) => !e)}
         >
           <div className="flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-amber-500 shrink-0" />
+            <Lightbulb className="h-4 w-4 text-amber-700 shrink-0" />
             <span className="text-sm font-semibold text-foreground">
               {visible.length} expense{visible.length !== 1 ? "s" : ""} may be shared
             </span>

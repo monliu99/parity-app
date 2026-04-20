@@ -9,7 +9,7 @@ import {
   MessageCircle, ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
 import { updateBudgetAmountAction, generateBudgetAction, generateNextMonthPlanAction } from "./actions";
-import { CATEGORY_CHART_COLORS, CATEGORY_BADGE_CLASSES, DEFAULT_BADGE_CLASS, DEFAULT_CHART_COLOR } from "@/lib/category-colors";
+import { CATEGORY_BADGE_CLASSES, DEFAULT_BADGE_CLASS } from "@/lib/category-colors";
 import { Badge } from "@/components/ui/badge";
 import type { NextMonthPlan } from "@/lib/ai/budget";
 import type { TxRow } from "./page";
@@ -58,7 +58,7 @@ function monthLabel(month: string) {
   return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 function shortDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }
 function ownerDisplay(tx: TxRow, uid: string) {
   if (tx.ownerLabel === "JOINT") return "Joint";
@@ -160,7 +160,14 @@ function BudgetCategoryRow({ row, readOnly, muted, transactions, currentUserId, 
   const displayPct = Math.min(pct, 100);
   const over = row.actual > effective;
   const nearLimit = pct >= 80 && !over;
-  const categoryColor = CATEGORY_CHART_COLORS[row.category] ?? DEFAULT_CHART_COLOR;
+
+  // Bar color based on percentage: moss green (<80%), light amber (80-100%), dark amber (100%+)
+  const barColor = pct >= 100
+    ? "oklch(0.55 0.15 70)"  // dark amber
+    : pct >= 80
+      ? "oklch(0.85 0.08 70)"  // light amber
+      : "oklch(0.515 0.092 155)";  // moss green
+
   const barOpacity = muted ? 0.35 : 1;
   const overAmount = row.actual - effective;
   const hasTx = transactions.length > 0;
@@ -169,14 +176,14 @@ function BudgetCategoryRow({ row, readOnly, muted, transactions, currentUserId, 
     <div className="group/catrow">
       {/* Single shaded row — bg-secondary covers name, bar, AND number columns */}
       <div
-        className={`flex items-center gap-4 p-3 rounded-lg bg-secondary transition-colors ${hasTx ? "hover:bg-secondary/80 cursor-pointer" : ""}`}
+        className={`grid gap-x-6 p-3 rounded-lg bg-secondary transition-colors ${hasTx ? "hover:bg-secondary/80 cursor-pointer" : ""}`}
+        style={{ gridTemplateColumns: "140px 1fr auto", alignItems: "center" }}
         onClick={() => hasTx && setExpanded((e) => !e)}
       >
-        {/* flex-1 area: name + bar */}
-        <div className="flex-1 min-w-0">
-          {/* Line 1: name flush-left, chevron after, inline over-budget */}
+        {/* Left: category name column */}
+        <div className="shrink-0 pr-3">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-sm font-medium truncate" style={{ color: categoryColor }}>
+            <span className="text-sm font-medium text-foreground whitespace-nowrap">
               {row.category}
             </span>
             {hasTx && (
@@ -184,27 +191,29 @@ function BudgetCategoryRow({ row, readOnly, muted, transactions, currentUserId, 
                 ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                 : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0 opacity-0 group-hover/catrow:opacity-50 transition-opacity" />
             )}
-            {over && (
-              <span className="text-xs text-amber-600 shrink-0 whitespace-nowrap">↑ {fmt(overAmount)} over</span>
-            )}
           </div>
-
-          {/* Line 2: bar spans full area width — every bar is the same length */}
-          <div className="mt-2 h-1.5 rounded-full bg-border/20 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{ width: `${displayPct}%`, backgroundColor: categoryColor, opacity: barOpacity }}
-            />
-          </div>
-
-          {showReasoning && row.reasoning && (
-            <p className="text-xs text-muted-foreground italic mt-1.5">{row.reasoning}</p>
+          {over && (
+            <div className="mt-0.5">
+              <span className="text-xs text-amber-700">↑ {fmt(overAmount)} over</span>
+            </div>
           )}
         </div>
 
-        {/* NUMBER COLUMNS — inside the shaded row, center-aligned fixed widths */}
-        {/* Order: budget | spent | % used */}
-        <div className="flex items-center gap-4 shrink-0">
+        {/* Middle: progress bar */}
+        <div className="min-w-0">
+          <div className="h-2 rounded-full bg-border/20 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{ width: `${displayPct}%`, backgroundColor: barColor, opacity: barOpacity }}
+            />
+          </div>
+          {showReasoning && row.reasoning && (
+            <p className="text-xs text-muted-foreground italic mt-1">{row.reasoning}</p>
+          )}
+        </div>
+
+        {/* Right: numbers column */}
+        <div className="flex items-center gap-6 shrink-0">
           {/* Budget — editable, centered */}
           <div className="w-16 flex justify-center">
             <EditableAmount
@@ -214,12 +223,12 @@ function BudgetCategoryRow({ row, readOnly, muted, transactions, currentUserId, 
               readOnly={readOnly}
             />
           </div>
-          {/* Spent — always black */}
-          <span className="text-sm font-semibold tabular-nums w-14 text-center text-foreground">
+          {/* Spent */}
+          <span className="text-sm font-semibold tabular-nums w-16 text-center text-foreground">
             {fmt(row.actual)}
           </span>
           {/* % used */}
-          <span className={`text-sm font-medium tabular-nums w-10 text-center ${over ? "text-amber-600" : nearLimit ? "text-amber-500" : "text-muted-foreground/50"}`}>
+          <span className={`text-sm font-semibold tabular-nums w-16 text-center ${over ? "text-amber-700" : nearLimit ? "text-amber-700" : "text-muted-foreground/50"}`}>
             {pct}%
           </span>
         </div>
@@ -256,15 +265,19 @@ function BudgetCategoryRow({ row, readOnly, muted, transactions, currentUserId, 
 
 function ColumnHeaders({ showSpent = true }: { showSpent?: boolean }) {
   return (
-    // px-3 + gap-4 mirrors the row's p-3 + gap-4 so labels sit directly above their columns
-    <div className="flex items-center px-3 gap-4 pb-2">
-      <div className="flex-1" /> {/* matches flex-1 name area in row */}
-      <div className="flex items-center gap-4 shrink-0">
+    // Matches the BudgetCategoryRow grid layout: 140px | 1fr | auto
+    <div className="grid gap-x-6 px-3 pb-2" style={{ gridTemplateColumns: "140px 1fr auto", alignItems: "center" }}>
+      {/* Left spacer for category name */}
+      <div />
+      {/* Middle spacer for progress bar */}
+      <div />
+      {/* Right: column headers */}
+      <div className="flex items-center gap-6 shrink-0">
         <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-16 text-center">budget</span>
         {showSpent && (
-          <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-14 text-center">spent</span>
+          <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-16 text-center">spent</span>
         )}
-        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-10 text-center">used</span>
+        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide w-16 text-center">used</span>
       </div>
     </div>
   );
@@ -345,7 +358,13 @@ function TrackTab({
         <Card className="shadow-card">
           <CardContent className="pt-5 pb-5">
             <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-1">Spent</p>
-            <p className={`text-3xl font-bold tabular-nums leading-none ${overBudget ? "text-amber-600" : "text-foreground"}`}>
+            <p className={`text-3xl font-bold tabular-nums leading-none ${
+              totalPct >= 100
+                ? "text-amber-700"
+                : totalPct >= 80
+                  ? "text-amber-600"
+                  : "text-moss"
+            }`}>
               {fmt(totalActual)}
             </p>
             {isCurrentMonth && daysLeft > 0 && (

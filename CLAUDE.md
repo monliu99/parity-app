@@ -27,6 +27,8 @@ npx tsx scripts/seed.ts               # Seed Neon DB with demo data
 
 **Prisma migrate note:** `prisma migrate dev` tends to hang in this environment. If it does, apply schema changes directly via a raw SQL script or Neon console, then run `prisma generate` separately.
 
+**Seed script gotcha:** The seed script creates specific March and April 2026 transactions using `specificDate()`. When adding new transaction data, use `specificDate()` instead of `daysAgo()` to avoid date overlap issues. The `daysAgo()` function calculates relative to when the script runs, which can cause transactions to spill into unintended months.
+
 **Seed credentials:** `mo@parity.app` / `password` and `andrew@parity.app` / `password` (invite code: `DEMO42`).
 
 ## Architecture
@@ -100,24 +102,23 @@ All integrations use the Anthropic SDK directly (no streaming):
 
 ### Design system
 
-**Type scale** — exactly 5 tiers. Emphasis within a tier comes from `font-medium|semibold|bold` and color, never from bumping to a bigger size.
+**Type scale** — exactly 4 tiers. Emphasis within a tier comes from `font-medium|semibold|bold` and color, never from bumping to a bigger size.
 
 | Tier | Class | Use |
 |---|---|---|
-| **Display** | `text-5xl font-bold tabular-nums` | Exactly ONE hero number per page (currently: dashboard net worth). Nothing else. |
-| **Stat** | `text-3xl font-bold tabular-nums` | Summary card big numbers (transactions totals, budget totals) when the number stands alone on its own line with an eyebrow label above. |
+| **Hero** | `text-3xl font-bold tabular-nums` | Big numbers — net worth, card totals when standing alone with an eyebrow label above. |
 | **Title** | `text-2xl font-bold` | Page H1 only. |
-| **Body** | `text-sm` | Default for EVERYTHING else — list row labels + amounts, inline amounts, buttons, subtitles, AI insight bodies, form fields, empty-state text. Vary weight (`font-medium` / `font-semibold` / `font-bold`) and color (`text-foreground` / `text-muted-foreground` / `text-emerald-600` / `text-amber-600`) for emphasis. |
+| **Body** | `text-sm` | Default for EVERYTHING else — list row labels + amounts, inline amounts, buttons, subtitles, AI insight bodies, form fields, empty-state text. Vary weight (`font-medium` / `font-semibold` / `font-bold`) and color (`text-foreground` / `text-muted-foreground` / `text-emerald-600` / `text-amber-700`) for emphasis. |
 | **Meta** | `text-xs` | Eyebrow labels (`uppercase tracking-widest font-medium text-muted-foreground`), dates, counts, captions, helper text, badges (`text-xs border-0`). |
 
-**Ironclad rule:** any two text elements on the same visual line must use the same tier. If a label and amount sit in one row, they're both `text-sm` (Body) or both `text-xs` (Meta). Stat-tier numbers always live on their own line with an eyebrow Meta label above.
+**Ironclad rule:** any two text elements on the same visual line must use the same tier. If a label and amount sit in one row, they're both `text-sm` (Body) or both `text-xs` (Meta). Hero-tier numbers always live on their own line with an eyebrow Meta label above.
 
 **Page subtitle pattern:** `text-sm text-muted-foreground mt-1` (explicit, always under H1).
 
 **Sign/outcome colors** — use across all pages:
 - Positive / income / gain: `text-emerald-600`
-- Negative / warning / over-budget: `text-amber-600` (never `text-red-*`)
-- Near-limit / caution: `text-amber-500`
+- Negative / warning / over-budget: `text-amber-700` (never `text-red-*`)
+- Near-limit / caution: `text-amber-700`
 - Neutral text emphasis: `text-foreground`
 
 **List rows** — use this pattern on all item rows (accounts, transactions, goals):

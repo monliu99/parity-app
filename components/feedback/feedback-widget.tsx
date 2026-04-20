@@ -299,7 +299,7 @@ export function FeedbackWidget() {
                 </div>
               ))}
 
-              {error && <p className="text-xs text-amber-600">{error}</p>}
+              {error && <p className="text-xs text-amber-700">{error}</p>}
             </div>
 
             <DialogFooter>
