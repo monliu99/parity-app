@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,133 +15,53 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-// --- Question types ---
-
-type TextQuestion = {
-  type: "text";
-  question: string;
-  placeholder?: string;
-};
-
-type YesNoQuestion = {
-  type: "yesno";
-  question: string;
-  elaboratePrompt: string;
-};
-
-type Question = TextQuestion | YesNoQuestion;
-
-// --- Emoji rating ---
-
-const EMOJI_OPTIONS = [
-  { value: 3, emoji: "😄", label: "Great" },
-  { value: 2, emoji: "😐", label: "Okay" },
-  { value: 1, emoji: "😔", label: "Bad" },
+// --- Q1: Unified value question ---
+const Q1_OPTIONS = [
+  { value: 3, label: "Yes" },
+  { value: 2, label: "Not sure" },
+  { value: 1, label: "No" },
 ];
 
-// --- Per-page Q1 (Q2 is always the couple-gap question below) ---
-
-const COUPLE_GAP_QUESTION: TextQuestion = {
-  type: "text",
-  question: "What would make this more useful for you and your partner?",
-  placeholder: "Features, information, or ways it could fit your life together…",
-};
-
-const PAGE_NAMES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/accounts": "Accounts",
-  "/transactions": "Transactions",
-  "/budget": "Budget",
-  "/goals": "Goals",
-  "/chat": "Ask Parity",
-  "/settings": "Settings",
-};
-
-const PAGE_Q1: Record<string, Question> = {
-  "/dashboard": {
-    type: "yesno",
-    question: "Did the AI insight help you see something new about your finances?",
-    elaboratePrompt: "Tell us what it showed you — or what it missed.",
-  },
-  "/accounts": {
-    type: "text",
-    question: "What account information are you missing to feel on top of things together?",
-    placeholder: "Balances, history, a missing account type…",
-  },
-  "/transactions": {
-    type: "text",
-    question: "What are you trying to understand about your spending that this page doesn't show?",
-    placeholder: "A view, filter, or pattern you wished existed…",
-  },
-  "/budget": {
-    type: "yesno",
-    question: "Are the AI-suggested budget amounts close to what you'd actually set?",
-    elaboratePrompt: "Tell us why — what should it know about your spending habits?",
-  },
-  "/goals": {
-    type: "text",
-    question: "What goals or milestones are you tracking that Parity doesn't support yet?",
-    placeholder: "A goal type, timeline, or tracking feature you need…",
-  },
-  "/chat": {
-    type: "yesno",
-    question: "Did Parity answer the question you came here to ask?",
-    elaboratePrompt: "What did you ask, and what would a great answer look like?",
-  },
-  "/settings": {
-    type: "text",
-    question: "What settings or partnership features are you missing?",
-    placeholder: "Notifications, sharing controls, account linking…",
-  },
-};
-
-const DEFAULT_Q1: Question = {
-  type: "text",
-  question: "What are you trying to do here that isn't working?",
-  placeholder: "Describe what you were looking for or trying to accomplish…",
-};
-
-function getQuestions(pathname: string): Question[] {
-  const q1 = PAGE_Q1[pathname] ?? DEFAULT_Q1;
-  return [q1, COUPLE_GAP_QUESTION];
-}
+// --- Q2: Action taken question ---
+const Q2_OPTIONS = [
+  "Just looked",
+  "Discussed with my partner",
+  "Made a change to our finances",
+  "Want to act but need more guidance",
+];
 
 // --- Format answers for storage ---
-
 function formatAnswers(
-  questions: Question[],
-  yesNoSelections: Record<number, boolean | null>,
-  elaborations: string[]
+  q1Selection: number | null,
+  q2Selection: string | null,
+  q3Text: string
 ): string {
-  return questions
-    .map((q, i) => {
-      if (q.type === "yesno") {
-        const selected = yesNoSelections[i];
-        if (selected === null || selected === undefined) return null;
-        const label = selected ? "Yes" : "No";
-        const detail = elaborations[i]?.trim();
-        return `${q.question}\n${label}${detail ? ` — ${detail}` : ""}`;
-      } else {
-        const answer = elaborations[i]?.trim();
-        if (!answer) return null;
-        return `${q.question}\n${answer}`;
-      }
-    })
-    .filter(Boolean)
-    .join("\n\n");
+  const parts: string[] = [];
+
+  const q1Label = Q1_OPTIONS.find((o) => o.value === q1Selection)?.label;
+  if (q1Label) {
+    parts.push(`Did this help you notice something new or have a conversation? ${q1Label}`);
+  }
+
+  if (q2Selection) {
+    parts.push(`What did you do? ${q2Selection}`);
+  }
+
+  if (q3Text.trim()) {
+    parts.push(`\nTell us more:\n${q3Text.trim()}`);
+  }
+
+  return parts.join("\n\n");
 }
 
 // --- Widget ---
-
 export function FeedbackWidget() {
   const pathname = usePathname();
-  const questions = useMemo(() => getQuestions(pathname), [pathname]);
-  const pageName = PAGE_NAMES[pathname] ?? "this page";
 
   const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [yesNoSelections, setYesNoSelections] = useState<Record<number, boolean | null>>({});
-  const [elaborations, setElaborations] = useState<string[]>([]);
+  const [q1Selection, setQ1Selection] = useState<number | null>(null);
+  const [q2Selection, setQ2Selection] = useState<string | null>(null);
+  const [q3Text, setQ3Text] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -149,38 +69,31 @@ export function FeedbackWidget() {
   if (pathname.startsWith("/admin")) return null;
 
   function reset() {
-    setRating(0);
-    setYesNoSelections({});
-    setElaborations([]);
+    setQ1Selection(null);
+    setQ2Selection(null);
+    setQ3Text("");
     setError("");
     setDone(false);
     setLoading(false);
   }
 
-  function setElaboration(i: number, value: string) {
-    setElaborations((prev) => {
-      const next = [...prev];
-      next[i] = value;
-      return next;
-    });
-  }
-
-  function selectYesNo(i: number, value: boolean) {
-    setYesNoSelections((prev) => ({ ...prev, [i]: value }));
-  }
-
   async function handleSubmit() {
-    if (rating === 0) {
-      setError("Please select how Parity is working for you");
+    if (q1Selection === null) {
+      setError("Please answer the first question");
       return;
     }
+    if (q2Selection === null) {
+      setError("Please answer the second question");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
-    const comment = formatAnswers(questions, yesNoSelections, elaborations);
+    const comment = formatAnswers(q1Selection, q2Selection, q3Text);
 
     const result = await submitFeedback({
-      rating,
+      rating: q1Selection,
       comment: comment || undefined,
       page: pathname,
       userAgent:
@@ -227,77 +140,72 @@ export function FeedbackWidget() {
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>How&apos;s {pageName} working for you?</DialogTitle>
+              <DialogTitle>Feedback</DialogTitle>
             </DialogHeader>
 
             <div className="flex flex-col gap-5 py-2">
-              {/* Emoji rating */}
-              <div className="flex gap-3 justify-center">
-                {EMOJI_OPTIONS.map(({ value, emoji, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRating(value)}
-                    className={cn(
-                      "flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl border transition-colors focus:outline-none",
-                      rating === value
-                        ? "border-primary bg-primary/8"
-                        : "border-border hover:border-primary/50 hover:bg-secondary"
-                    )}
-                  >
-                    <span className="text-2xl leading-none">{emoji}</span>
-                    <span className="text-xs font-medium text-muted-foreground">
+              {/* Q1: Unified value */}
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Did seeing this together help you notice something new or have a conversation you wouldn&apos;t have had otherwise?
+                </p>
+                <div className="flex gap-2">
+                  {Q1_OPTIONS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setQ1Selection(value)}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none",
+                        q1Selection === value
+                          ? "border-primary bg-primary/8 text-foreground"
+                          : "border-border hover:border-primary/50 hover:bg-secondary text-muted-foreground"
+                      )}
+                    >
                       {label}
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Questions */}
-              {questions.map((q, i) => (
-                <div key={i} className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">{q.question}</p>
-
-                  {q.type === "yesno" ? (
-                    <>
-                      <div className="flex gap-2">
-                        {[true, false].map((val) => (
-                          <button
-                            key={String(val)}
-                            type="button"
-                            onClick={() => selectYesNo(i, val)}
-                            className={cn(
-                              "flex-1 py-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none",
-                              yesNoSelections[i] === val
-                                ? "border-primary bg-primary/8 text-foreground"
-                                : "border-border hover:border-primary/50 hover:bg-secondary text-muted-foreground"
-                            )}
-                          >
-                            {val ? "Yes" : "No"}
-                          </button>
-                        ))}
-                      </div>
-                      {yesNoSelections[i] !== undefined && yesNoSelections[i] !== null && (
-                        <textarea
-                          value={elaborations[i] ?? ""}
-                          onChange={(e) => setElaboration(i, e.target.value)}
-                          placeholder={q.elaboratePrompt}
-                          rows={2}
-                          className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-                        />
+              {/* Q2: Action taken */}
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  What did you do (or want to do) after seeing this?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Q2_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setQ2Selection(option)}
+                      className={cn(
+                        "py-1.5 px-3 rounded-lg border text-sm font-medium transition-colors focus:outline-none text-left",
+                        q2Selection === option
+                          ? "border-primary bg-primary/8 text-foreground"
+                          : "border-border hover:border-primary/50 hover:bg-secondary text-muted-foreground"
                       )}
-                    </>
-                  ) : (
-                    <textarea
-                      value={elaborations[i] ?? ""}
-                      onChange={(e) => setElaboration(i, e.target.value)}
-                      placeholder={q.placeholder ?? "Share your thoughts…"}
-                      rows={2}
-                      className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-                    />
-                  )}
+                    >
+                      {option}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Q3: Optional elaboration */}
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Tell us more about what happened (or what would have helped)
+                  <span className="text-muted-foreground font-normal"> (optional)</span>
+                </p>
+                <textarea
+                  value={q3Text}
+                  onChange={(e) => setQ3Text(e.target.value)}
+                  placeholder="Share any additional thoughts…"
+                  rows={2}
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                />
+              </div>
 
               {error && <p className="text-xs text-amber-700">{error}</p>}
             </div>

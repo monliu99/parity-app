@@ -14,6 +14,7 @@ export async function submitFeedback(input: {
 
     const { rating, comment, page, userAgent } = input;
 
+    // Rating maps to Q1: Yes=3, Not sure=2, No=1
     if (!Number.isInteger(rating) || rating < 1 || rating > 3) {
       return { error: "Rating must be 1, 2, or 3" };
     }

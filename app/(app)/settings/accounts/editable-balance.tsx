@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import { updateAccountBalance } from "./actions";
 
 interface EditableBalanceProps {

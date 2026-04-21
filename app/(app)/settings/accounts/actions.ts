@@ -19,7 +19,6 @@ export async function createAccount(formData: FormData) {
     const forPartner = formData.get("forPartner") === "true";
     const partnerId = formData.get("partnerId") as string | null;
 
-    // Validation
     if (!name?.trim()) {
       return { error: "Account name is required" };
     }
@@ -36,7 +35,6 @@ export async function createAccount(formData: FormData) {
 
     const accountUserId = forPartner && partnerId ? partnerId : userId;
 
-    // If marking as partner's account, verify partner exists
     if (forPartner && partnerId) {
       const partnerMembership = await db.membership.findFirst({
         where: {
@@ -66,7 +64,7 @@ export async function createAccount(formData: FormData) {
       },
     });
 
-    revalidatePath("/accounts");
+    revalidatePath("/settings/accounts");
     revalidatePath("/dashboard");
   } catch (error) {
     console.error("Error creating account:", error);
@@ -82,7 +80,6 @@ export async function updateAccount(id: string, formData: FormData) {
   try {
     const { partnership } = await getPartnership();
 
-    // Verify account exists and belongs to partnership
     const existing = await db.account.findFirst({
       where: { id, partnershipId: partnership.id },
     });
@@ -96,7 +93,6 @@ export async function updateAccount(id: string, formData: FormData) {
     const balanceStr = formData.get("balance") as string;
     const institution = (formData.get("institution") as string) || null;
 
-    // Validation
     if (!name?.trim()) {
       return { error: "Account name is required" };
     }
@@ -121,7 +117,7 @@ export async function updateAccount(id: string, formData: FormData) {
       },
     });
 
-    revalidatePath("/accounts");
+    revalidatePath("/settings/accounts");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
@@ -136,7 +132,6 @@ export async function deleteAccount(id: string) {
   try {
     const { partnership } = await getPartnership();
 
-    // Verify account exists and belongs to partnership
     const existing = await db.account.findFirst({
       where: { id, partnershipId: partnership.id },
     });
@@ -145,22 +140,11 @@ export async function deleteAccount(id: string) {
       return { error: "Account not found" };
     }
 
-    // Check if account has transactions
-    const transactionCount = await db.transaction.count({
-      where: { accountId: id },
-    });
-
-    if (transactionCount > 0) {
-      return {
-        error: `Cannot delete account with ${transactionCount} transaction(s). Please delete the transactions first.`,
-      };
-    }
-
     await db.account.deleteMany({
       where: { id, partnershipId: partnership.id },
     });
 
-    revalidatePath("/accounts");
+    revalidatePath("/settings/accounts");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
@@ -175,7 +159,6 @@ export async function updateAccountBalance(accountId: string, balance: number) {
   try {
     const { partnership } = await getPartnership();
 
-    // Verify account exists and belongs to partnership
     const existing = await db.account.findFirst({
       where: { id: accountId, partnershipId: partnership.id },
     });
@@ -193,7 +176,7 @@ export async function updateAccountBalance(accountId: string, balance: number) {
       data: { balance },
     });
 
-    revalidatePath("/accounts");
+    revalidatePath("/settings/accounts");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {

@@ -13,8 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
-  CreditCard,
-  ArrowLeftRight,
   Target,
   MessageCircle,
   PieChart,
@@ -22,15 +20,16 @@ import {
   LogOut,
   Menu,
   Shield,
+  Sparkles,
+  Calendar,
 } from "lucide-react";
 
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/accounts", label: "Accounts", icon: CreditCard },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+  { href: "/life-planning", label: "Life Plan", icon: Sparkles },
   { href: "/budget", label: "Budget", icon: PieChart },
   { href: "/goals", label: "Goals", icon: Target },
-  { href: "/chat", label: "Ask Parity", icon: MessageCircle },
+  { href: "/review", label: "Monthly Review", icon: Calendar },
 ];
 
 interface MobileNavProps {
@@ -69,11 +68,13 @@ export function MobileNav({ user }: MobileNavProps) {
       <SheetContent side="left" className="w-3/4 p-0">
         <div className="flex flex-col h-full bg-sidebar">
           {/* Logo */}
-          <div className="px-5 py-6 border-b border-border flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-            <span className="text-xl tracking-tight text-foreground font-heading italic">
-              Parity
-            </span>
+          <div className="px-5 py-6 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+              <span className="text-xl tracking-tight text-foreground font-heading italic">
+                Parity
+              </span>
+            </div>
           </div>
 
           {/* Main nav */}
@@ -122,6 +123,14 @@ export function MobileNav({ user }: MobileNavProps) {
                   Admin
                 </Link>
               )}
+              <Link
+                href="/chat"
+                onClick={handleNavClick}
+                className="flex items-center gap-2.5 px-2 py-2 text-sm text-foreground hover:bg-secondary rounded-md transition-colors"
+              >
+                <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                Ask Parity
+              </Link>
               <Link
                 href="/settings"
                 onClick={handleNavClick}

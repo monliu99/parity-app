@@ -4,30 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What Parity Is
 
-**Parity** is an AI-native tool for managing a life together — not just a financial app. The core insight: couples don't lack budgeting tools, they lack a shared operating system for joint decisions. Parity gives couples a real-time, unified view of their financial picture and uses AI to surface what matters, prompt the right conversations, and reduce the mental load of managing money together.
+**Parity improves relationship harmony by enabling couples to collectively own their finances.**
 
-**Target users:** Committed couples aged 25–40, combined household income ~$140K+, digitally fluent, actively navigating shared financial decisions.
+It's a relationship app that uses money as the topic — not a finance app. Target users: couples facing life transitions (moving in together, marriage, buying a home, having a baby) who want to align on their financial future together.
 
-**Core thesis:** AI-powered shared visibility and alignment — not budgeting, not splitting, not surveillance. The AI is framed around the couple as a unit: curious, forward-looking, never accusatory.
+**Core value:** Make implicit financial assumptions explicit. AI facilitates the conversation, surfaces what you're missing, and frames everything as "you both" (never blame).
 
-**AI tone (enforced in all prompts):** Use "you" / "you both". Observations, not judgments. Forward-looking ("at this pace…"). Never accusatory. Under 15 words per insight.
+**AI tone:** Neutral, invisible, observational. "you" / "you both". Under 15 words per insight.
 
 ## Commands
 
 ```bash
-npm run dev                           # Start dev server on localhost:3000
-npm run build                         # prisma generate + next build
-npm run lint                          # ESLint
-npx tsc --noEmit                      # Type check without building
-npx prisma migrate dev --name <name>  # Create and apply a migration (see note)
-npx prisma generate                   # Regenerate Prisma client after schema changes
-npx prisma studio                     # Open DB browser UI at localhost:5555
-npx tsx scripts/seed.ts               # Seed Neon DB with demo data
+npm run dev              # Start dev server on localhost:3000
+npm run build            # prisma generate + next build
+npm run lint             # ESLint
+npx tsc --noEmit         # Type check without building
+npx prisma generate      # Regenerate Prisma client after schema changes
+npx tsx scripts/seed.ts  # Seed Neon DB with demo data
 ```
-
-**Prisma migrate note:** `prisma migrate dev` tends to hang in this environment. If it does, apply schema changes directly via a raw SQL script or Neon console, then run `prisma generate` separately.
-
-**Seed script gotcha:** The seed script creates specific March and April 2026 transactions using `specificDate()`. When adding new transaction data, use `specificDate()` instead of `daysAgo()` to avoid date overlap issues. The `daysAgo()` function calculates relative to when the script runs, which can cause transactions to spill into unintended months.
 
 **Seed credentials:** `mo@parity.app` / `password` and `andrew@parity.app` / `password` (invite code: `DEMO42`).
 
@@ -35,138 +29,43 @@ npx tsx scripts/seed.ts               # Seed Neon DB with demo data
 
 **Stack:** Next.js 16 (App Router) + TypeScript + Tailwind 4 + shadcn/ui (base-ui v4) + Prisma 7 (Neon/PostgreSQL) + NextAuth v5 beta + Anthropic SDK
 
-> **IMPORTANT — Next.js 16:** This is NOT the Next.js you know from training data. APIs and conventions have changed. Read `node_modules/next/dist/docs/` before writing Next.js-specific code.
-
 ### Key files
-
-- `auth.ts` — Full NextAuth v5 config (credentials provider, JWT, bcrypt). Import `{ auth, signIn, signOut, handlers }` from here.
-- `auth.config.ts` — Edge-safe config (no DB imports). Used by `proxy.ts` only.
-- `proxy.ts` — **Next.js 16 renamed `middleware.ts` to `proxy.ts`.** Do NOT create a `middleware.ts` — having both causes a server crash.
-- `lib/db.ts` — Prisma singleton using `PrismaNeon` adapter. Connects to Neon via `DATABASE_URL`.
-- `lib/partnership.ts` — `getPartnership()` used by all protected server components/actions. Returns `{ partnership, userId }` and redirects to `/login` if unauthenticated.
-- `lib/onboarding.ts` — Onboarding state utilities: `getCurrentOnboardingStep()`, `shouldShowOnboarding()`.
-- `app/generated/prisma/` — Generated Prisma client. **Import from here, not `@prisma/client`.**
-- `prisma.config.ts` — Prisma config; loads `.env` via `dotenv/config`.
-
-### Route groups
-
-- `app/(auth)/` — `login`, `signup` (public, no nav)
-- `app/(app)/` — Protected pages: `dashboard`, `accounts`, `transactions`, `goals`, `chat`, `settings`, `budget`, `onboarding`. Layout at `app/(app)/layout.tsx` has responsive sidebar (`hidden md:flex`) and mobile header with hamburger menu.
-- `app/api/auth/[...nextauth]/route.ts` — NextAuth handler. Must use `export const { GET, POST } = handlers`.
-
-### Key components
-
-- `components/nav.tsx` — Desktop sidebar navigation with logo, main nav items, profile section with settings/sign out.
-- `components/mobile-nav.tsx` — Mobile slide-out drawer using Sheet component. Reuses same nav items and profile section.
-- `app/(app)/dashboard/synthesis-card.tsx` — Hero card on dashboard rendering a single AI-generated narrative insight ("Parity's take"). Returns `null` if synthesis is empty.
-- `app/(app)/dashboard/spending-trends-chart.tsx` — Month-over-month grouped bar chart (this month colored per category, last month muted gray). Top 8 categories by this-month spending.
-- `app/(app)/onboarding/onboarding-flow.tsx` — 3-step wizard (account → transaction → goal) for new users.
-- `components/onboarding/onboarding-step.tsx` — Reusable onboarding step card component.
+- `auth.ts` — NextAuth v5 config. Import `{ auth, signIn, signOut, handlers }` from here.
+- `proxy.ts` — Next.js 16 renamed `middleware.ts` to `proxy.ts`. Do NOT create a `middleware.ts`.
+- `lib/partnership.ts` — `getPartnership()` used by all protected pages. Returns `{ partnership, userId }`.
+- `app/generated/prisma/` — Import Prisma client from here, not `@prisma/client`.
 
 ### Auth pattern
-
-Two layers of protection:
-1. **Edge (`proxy.ts`):** Runs `authConfig.authorized` on every request — redirects unauthenticated users to `/login`, redirects logged-in users away from auth pages.
-2. **Server (`getPartnership()`):** Called at the top of every protected page/action. Confirms session, fetches membership, and always scopes subsequent DB queries to `partnershipId`.
-
-Never query across partnership boundaries — always filter by `partnershipId`.
+Two layers: Edge (`proxy.ts`) + Server (`getPartnership()`). Always scope queries to `partnershipId`.
 
 ### Data model
-
 ```
-User          id, email, name, passwordHash
-Partnership   id, inviteCode (6-char uppercase)
-Membership    userId + partnershipId (composite PK; max 2 per partnership enforced in app)
-Account       id, partnershipId, userId (owner), ownerLabel, name, type, balance, institution
-Transaction   id, partnershipId, accountId, userId (enterer), ownerLabel (MINE|PARTNER|JOINT), merchant, amount, category, date, notes
-Goal          id, partnershipId, userId (null=joint), ownerLabel (JOINT|PERSONAL), name, targetAmount, currentAmount, targetDate, notes
+User, Partnership, Membership (max 2), Account, Transaction, Goal
 ```
 
-**Viewer-relative ownership:** `ownerLabel` is from the *enterer's* perspective. To display "Mine" vs "Partner's" correctly, check `record.userId === currentUserId`. If the enterer is you and `ownerLabel === "MINE"` → display "Mine". If the enterer is your partner and `ownerLabel === "MINE"` → display "Partner's". `JOINT` always displays as "Joint".
-
-**Signup flow:** First partner signs up (no invite code) → creates User + Partnership. Second partner signs up with the invite code → joins existing Partnership. Max 2 members enforced in `signup/actions.ts`.
+**Viewer-relative ownership:** `ownerLabel` is from the *enterer's* perspective. Check `record.userId === currentUserId` to display correctly.
 
 ### AI features
-
-All integrations use the Anthropic SDK directly (no streaming):
-
-1. **`lib/ai/categorize.ts`** — `claude-haiku-4-5-20251001`. Called on every transaction save (in `transactions/actions.ts`). Returns one of 11 fixed categories. Fails silently → "Other".
-2. **`lib/ai/insights.ts`** — `claude-haiku-4-5-20251001`. Two functions:
-   - `getDashboardSynthesis(partnershipId, transactions, goals, accounts, budgetState?)` — **currently used**. Returns ONE 2-3 sentence narrative (35-50 words) synthesizing spending trend, savings rate, goal pacing, and budget status. Rendered in `SynthesisCard` on dashboard. 1h TTL cache.
-   - `getSpendingInsights(...)` — legacy; returns `{ overview, spending, goals }` string arrays. No longer called from dashboard; kept exported as dead code for now.
-3. **`lib/ai/chat.ts`** — `claude-haiku-4-5-20251001`. Stateless. Full context (all accounts, 60-day transactions capped at 100, all goals) sent each call. Invoked via `chat/actions.ts` server action.
-4. **`lib/ai/budget.ts`** — `claude-haiku-4-5-20251001`. Three exported functions, each with its own in-memory cache:
-   - `generateBudgetSuggestions(partnershipId, month, historicalByCategory)` — per-category budget amounts from 90-day spending history. 24h TTL. Called by `generateBudgetAction` in `budget/actions.ts`.
-   - `generateNextMonthPlan(...)` — full next-month plan: `categoryBudgets`, `contextSummary` bullets, `discussionPrompts`. 6h TTL. Called by `generateNextMonthPlanAction`.
-   - `getBudgetInsight(partnershipId, month, budgetRows, daysLeft)` — single-sentence budget status (≤20 words). 2h TTL. Called directly in `budget/page.tsx` (current month only; skipped for past months).
+All use Anthropic SDK directly (no streaming), currently `claude-haiku-4-5-20251001`:
+- `lib/ai/categorize.ts` — Transaction categorization
+- `lib/ai/insights.ts` — Dashboard synthesis
+- `lib/ai/chat.ts` — Q&A ("Ask Parity")
+- `lib/ai/budget.ts` — Budget suggestions and insights
 
 ### Design system
+**Type scale:** 4 tiers only. Hero (`text-3xl`), Title (`text-2xl`), Body (`text-sm`), Meta (`text-xs`). Same line = same tier.
 
-**Type scale** — exactly 4 tiers. Emphasis within a tier comes from `font-medium|semibold|bold` and color, never from bumping to a bigger size.
+**Colors:** Positive: `text-emerald-600`. Warning: `text-amber-700` (never `text-red-*`).
 
-| Tier | Class | Use |
-|---|---|---|
-| **Hero** | `text-3xl font-bold tabular-nums` | Big numbers — net worth, card totals when standing alone with an eyebrow label above. |
-| **Title** | `text-2xl font-bold` | Page H1 only. |
-| **Body** | `text-sm` | Default for EVERYTHING else — list row labels + amounts, inline amounts, buttons, subtitles, AI insight bodies, form fields, empty-state text. Vary weight (`font-medium` / `font-semibold` / `font-bold`) and color (`text-foreground` / `text-muted-foreground` / `text-emerald-600` / `text-amber-700`) for emphasis. |
-| **Meta** | `text-xs` | Eyebrow labels (`uppercase tracking-widest font-medium text-muted-foreground`), dates, counts, captions, helper text, badges (`text-xs border-0`). |
+**UI components:** No `asChild` — use `render={<element />}`. `Select.onValueChange` passes `string | null` — guard with `(v) => v && setState(v)`.
 
-**Ironclad rule:** any two text elements on the same visual line must use the same tier. If a label and amount sit in one row, they're both `text-sm` (Body) or both `text-xs` (Meta). Hero-tier numbers always live on their own line with an eyebrow Meta label above.
+## Current State
 
-**Page subtitle pattern:** `text-sm text-muted-foreground mt-1` (explicit, always under H1).
+**Original MVP (Phase 1):** Live at [withparity.vercel.app](https://withparity.vercel.app). Dashboard, goals, transactions, budget, AI chat.
 
-**Sign/outcome colors** — use across all pages:
-- Positive / income / gain: `text-emerald-600`
-- Negative / warning / over-budget: `text-amber-700` (never `text-red-*`)
-- Near-limit / caution: `text-amber-700`
-- Neutral text emphasis: `text-foreground`
+**Current focus (on `alignment` branch):** Building new MVP centered on **financial alignment for relationship harmony**. Three core features:
+1. **Life Planning** — Design your shared life together (entry for Aligners/Planners)
+2. **Shared Goals** — Track progress toward your dreams as "ours" not "mine + yours"
+3. **Monthly Review** — 15-minute guided check-in to stay on track
 
-**List rows** — use this pattern on all item rows (accounts, transactions, goals):
-```
-relative flex items-center justify-between p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group
-```
-Action buttons: `absolute right-1 top-1/2 -translate-y-1/2 ... opacity-0 group-hover:opacity-100 bg-secondary rounded-md` — always absolutely positioned so they never shift the amount column.
-
-**Category colors** — single source of truth in `lib/category-colors.ts`. Exports `CATEGORY_BADGE_CLASSES` (Tailwind classes for badges) and `CATEGORY_CHART_COLORS` (hex for recharts). Import from there; never duplicate inline. Only transaction category badges are colorful — Joint/Personal/type badges use `bg-secondary text-secondary-foreground`.
-
-**Fonts** — `font-heading italic` for the Parity logo (not inline `style` prop). Never use Playfair for numbers.
-
-**AI insight cards** — plain `shadow-card` white, same as all other cards. No earthy background tint.
-
-### UI component notes (base-ui v4 / shadcn)
-
-- No `asChild` prop — use `render={<element />}` on `DialogTrigger` instead.
-- `Select.onValueChange` passes `string | null` — guard with `(v) => v && setState(v)`.
-- Components live in `components/ui/`: `badge`, `button`, `card`, `dialog`, `input`, `label`, `progress`, `select`, `separator`, `sheet`.
-
-## Environment Variables
-
-```
-AUTH_SECRET=          # NextAuth v5 uses AUTH_SECRET (not NEXTAUTH_SECRET)
-NEXTAUTH_URL=http://localhost:3000
-ANTHROPIC_API_KEY=
-DATABASE_URL="postgresql://..."  # Neon connection string
-```
-
-## Deployment
-
-- **Production URL:** https://withparity.vercel.app
-- **Vercel project:** `parity-app` (team: `monliu99s-projects`)
-- Deploy to production: `vercel --prod`
-- Env vars are managed via `vercel env add <NAME> production preview` — do NOT add sensitive vars to `development` target (Vercel blocks it); use `.env.local` locally instead.
-- Both `NEXTAUTH_URL` and `AUTH_URL` must be set to `https://withparity.vercel.app` in Vercel — never a per-deployment URL (e.g. `parity-xyz-monliu99s-projects.vercel.app`), which gets garbage-collected and breaks auth callbacks.
-
-## Current State (Phase 1 Complete)
-
-**Phase 1 — Polish & Demo-Ready** is complete. The app is fully functional for demo, class presentation, or early user testing.
-
-**Completed Phase 1 features:**
-- ✅ Mobile responsiveness with slide-out drawer navigation
-- ✅ 3-step onboarding wizard for new users
-- ✅ Inline account balance quick-edit
-- ✅ Global error boundaries and action error handling
-- ✅ Dashboard: hero AI synthesis card ("Parity's take") + 3-card row (Net Worth, Cash Flow, Budget Status) + month-over-month spending chart
-- ✅ Personalized page title ("{me} & {partner}'s Dashboard") and partner name display
-- ✅ Type scale standardized to 5 tiers (Display / Stat / Title / Body / Meta); same-line-same-size rule
-
-**Next phase:** Phase 2 — Bank Integration (Plaid) when ready for production users.
+**Hypothesis:** Couples will find Parity elucidating — it helps them discover and articulate a shared vision they couldn't articulate alone, and enables conversations they were previously avoiding.

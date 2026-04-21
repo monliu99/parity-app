@@ -1,167 +1,61 @@
 import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
-import { getBudgetInsight } from "@/lib/ai/budget";
 import { BudgetEditor } from "./budget-editor";
 
-function currentMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
+export const DEFAULT_VARIABLE_CATEGORIES = [
+  "Groceries + Dining",
+  "Transport",
+  "Kids",
+  "Fun + Entertainment",
+  "Personal Care",
+  "Health",
+  "Shopping",
+  "Other",
+];
 
-function offsetMonth(month: string, delta: number): string {
-  const [y, m] = month.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+export default async function BudgetPage() {
+  const { partnership, userId } = await getPartnership();
 
-function monthToDateRange(month: string) {
-  const [year, monthNum] = month.split("-").map(Number);
-  const start = new Date(year, monthNum - 1, 1);
-  const end = new Date(year, monthNum, 0, 23, 59, 59, 999);
-  return { start, end };
-}
-
-export interface TxRow {
-  id: string;
-  merchant: string;
-  amount: number;
-  date: string;
-  ownerLabel: string;
-  userId: string | null;
-  accountName: string;
-}
-
-export default async function BudgetPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string }>;
-}) {
-  const { month: qMonth } = await searchParams;
-  const today = currentMonth();
-  const selectedMonth = qMonth ?? today;
-  const prevMonth = offsetMonth(selectedMonth, -1);
-  const nextMonth = offsetMonth(selectedMonth, 1);
-
-  const isPastMonth = selectedMonth < today;
-  const isCurrentMonth = selectedMonth === today;
-
-  const { partnership, userId: currentUserId } = await getPartnership();
-
-  const { start, end } = monthToDateRange(selectedMonth);
-  const { start: nextStart, end: nextEnd } = monthToDateRange(nextMonth);
-
-  const [budgets, selectedMonthTxns, nextMonthBudgets, nextMonthTxns] = await Promise.all([
-    db.budget.findMany({
-      where: { partnershipId: partnership.id, month: selectedMonth },
-      orderBy: { category: "asc" },
+  const [fixed, variable] = await Promise.all([
+    db.budgetFixed.findMany({
+      where: { partnershipId: partnership.id },
+      orderBy: { createdAt: "asc" },
     }),
-    db.transaction.findMany({
-      where: {
-        partnershipId: partnership.id,
-        date: { gte: start, lte: end },
-        category: { not: "Income" },
-      },
-      include: { account: true },
-      orderBy: { date: "desc" },
-    }),
-    db.budget.findMany({
-      where: { partnershipId: partnership.id, month: nextMonth },
-      orderBy: { category: "asc" },
-    }),
-    db.transaction.findMany({
-      where: {
-        partnershipId: partnership.id,
-        date: { gte: nextStart, lte: nextEnd },
-        category: { not: "Income" },
-      },
+    db.budgetVariable.findMany({
+      where: { partnershipId: partnership.id },
     }),
   ]);
 
-  // Actual spending by category — selected month
-  const actualByCategory: Record<string, number> = {};
-  for (const tx of selectedMonthTxns) {
-    actualByCategory[tx.category] = (actualByCategory[tx.category] ?? 0) + tx.amount;
+  // Single estimate per category: prefer current user's, fall back to partner's
+  const myEstimates: Record<string, number> = {};
+  const partnerEstimates: Record<string, number> = {};
+  for (const v of variable) {
+    if (v.userId === userId) {
+      myEstimates[v.category] = v.amount;
+    } else {
+      partnerEstimates[v.category] = v.amount;
+    }
   }
+  const variableEstimates: Record<string, number> = { ...partnerEstimates, ...myEstimates };
 
-  // Transactions grouped by category (serializable for client)
-  const transactionsByCategory: Record<string, TxRow[]> = {};
-  for (const tx of selectedMonthTxns) {
-    if (!transactionsByCategory[tx.category]) transactionsByCategory[tx.category] = [];
-    transactionsByCategory[tx.category].push({
-      id: tx.id,
-      merchant: tx.merchant,
-      amount: tx.amount,
-      date: tx.date.toISOString(),
-      ownerLabel: tx.ownerLabel,
-      userId: tx.userId,
-      accountName: tx.account.name,
-    });
-  }
+  // All variable categories (defaults + any custom ones saved)
+  const savedCategories = [...new Set(variable.map((v) => v.category))];
+  const variableCategories = [
+    ...DEFAULT_VARIABLE_CATEGORIES,
+    ...savedCategories.filter((c) => !DEFAULT_VARIABLE_CATEGORIES.includes(c)),
+  ];
 
-  // Actual spending by category — next month
-  const nextActualByCategory: Record<string, number> = {};
-  for (const tx of nextMonthTxns) {
-    nextActualByCategory[tx.category] = (nextActualByCategory[tx.category] ?? 0) + tx.amount;
-  }
-
-  const budgetCategories = new Set(budgets.map((b) => b.category));
-
-  const budgetRows = budgets.map((b) => ({
-    id: b.id,
-    category: b.category,
-    suggestedAmount: b.suggestedAmount,
-    userAmount: b.userAmount,
-    actual: actualByCategory[b.category] ?? 0,
-  }));
-
-  const unbudgeted = Object.entries(actualByCategory)
-    .filter(([cat]) => !budgetCategories.has(cat))
-    .map(([category, actual]) => ({ category, actual }))
-    .sort((a, b) => b.actual - a.actual);
-
-  const nextMonthBudgetRows = nextMonthBudgets.map((b) => ({
-    id: b.id,
-    category: b.category,
-    suggestedAmount: b.suggestedAmount,
-    userAmount: b.userAmount,
-    actual: nextActualByCategory[b.category] ?? 0,
-    reasoning: "",
-  }));
-
-  // AI insight — only for current month with an existing budget
-  const daysLeft = (() => {
-    if (!isCurrentMonth) return 0;
-    const [y, m] = selectedMonth.split("-").map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    return Math.max(0, lastDay - new Date().getDate());
-  })();
-
-  const budgetInsight = isCurrentMonth && budgets.length > 0
-    ? await getBudgetInsight(
-        partnership.id,
-        selectedMonth,
-        budgetRows.map((b) => ({ category: b.category, effective: b.userAmount ?? b.suggestedAmount, actual: b.actual })),
-        daysLeft
-      )
-    : null;
+  // Baseline = fixed total + sum of single estimates
+  const totalFixed = fixed.reduce((sum, f) => sum + f.amount, 0);
+  const totalVariable = Object.values(variableEstimates).reduce((sum, amt) => sum + amt, 0);
+  const monthlyBaseline = totalFixed + totalVariable;
 
   return (
     <BudgetEditor
-      selectedMonth={selectedMonth}
-      prevMonth={prevMonth}
-      nextMonth={nextMonth}
-      today={today}
-      isPastMonth={isPastMonth}
-      isCurrentMonth={isCurrentMonth}
-      budgetRows={budgetRows}
-      unbudgeted={unbudgeted}
-      hasExistingBudget={budgets.length > 0}
-      nextMonthBudgetRows={nextMonthBudgetRows}
-      hasNextMonthBudget={nextMonthBudgets.length > 0}
-      transactionsByCategory={transactionsByCategory}
-      currentUserId={currentUserId}
-      budgetInsight={budgetInsight}
-      daysLeft={daysLeft}
+      fixed={fixed.map((f) => ({ id: f.id, category: f.category, amount: f.amount, notes: f.notes ?? undefined }))}
+      variableCategories={variableCategories}
+      variableEstimates={variableEstimates}
+      monthlyBaseline={monthlyBaseline}
     />
   );
 }

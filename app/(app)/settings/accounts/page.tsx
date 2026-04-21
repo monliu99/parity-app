@@ -48,15 +48,12 @@ export default async function AccountsPage() {
 
   const partnerMember = members.find((m) => m.userId !== userId);
 
-  // Joint accounts: userId is null (shared between partners)
   const jointAccounts = accounts.filter((a) => (a as any).userId === null);
   const totalJoint = jointAccounts.reduce((sum, a) => sum + a.balance, 0);
 
-  // My accounts: owned by me
   const mine = accounts.filter((a) => (a as any).userId === userId);
   const totalMine = mine.reduce((sum, a) => sum + a.balance, 0);
 
-  // Partner's accounts: owned by partner
   const partnerAccounts = accounts.filter((a) => (a as any).userId !== null && (a as any).userId !== userId);
   const totalPartner = partnerAccounts.reduce((sum, a) => sum + a.balance, 0);
 
@@ -91,19 +88,17 @@ export default async function AccountsPage() {
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <p className="font-semibold">No accounts yet.</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Add your first account to get started.
+              Add your first account to track your combined net worth.
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Joint accounts section - full width */}
           <AccountGroup
             label="Joint"
             accounts={jointAccounts}
             total={totalJoint}
           />
-          {/* Individual accounts - two columns below */}
           <div className="grid gap-6 md:grid-cols-2">
             <AccountGroup
               label="Mine"
@@ -141,7 +136,6 @@ function AccountGroup({
               {accounts.length} account{accounts.length !== 1 ? "s" : ""}
             </CardDescription>
           </div>
-          {/* Total sits flush right, same size as label — same edge as individual balances below */}
           <span className="text-base font-bold tabular-nums text-moss">
             {formatCurrency(total)}
           </span>
@@ -171,9 +165,7 @@ function AccountGroup({
                   )}
                 </div>
               </div>
-              {/* Balance — flush right, same edge as group total */}
               <EditableBalance accountId={account.id} balance={account.balance} />
-              {/* Buttons absolutely positioned so they don't shift the balance */}
               <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary rounded-md">
                 <AccountForm
                   account={account}

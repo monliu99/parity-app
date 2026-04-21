@@ -8,25 +8,29 @@ datasource db {
 }
 
 model User {
-  id             String              @id @default(cuid())
-  email          String              @unique
-  name           String
-  passwordHash   String
-  createdAt      DateTime            @default(now())
-  memberships    Membership[]
-  contributions  GoalContribution[]
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String
+  passwordHash    String
+  createdAt       DateTime         @default(now())
+  memberships     Membership[]
+  contributions   GoalContribution[]
   goalAllocations GoalAllocation[]
+  budgetVariable  BudgetVariable[]
 }
 
 model Partnership {
-  id           String       @id @default(cuid())
-  inviteCode   String       @unique
-  createdAt    DateTime     @default(now())
-  members      Membership[]
-  accounts     Account[]
-  transactions Transaction[]
-  goals        Goal[]
-  budgets      Budget[]
+  id             String          @id @default(cuid())
+  inviteCode     String          @unique
+  createdAt      DateTime        @default(now())
+  members        Membership[]
+  accounts       Account[]
+  goals          Goal[]
+  budgetFixed    BudgetFixed[]
+  budgetVariable BudgetVariable[]
+  lifePlans      LifePlan[]
+  decisions      Decision[]
+  reviewHistory  ReviewHistory[]
 }
 
 model Membership {
@@ -40,33 +44,16 @@ model Membership {
 }
 
 model Account {
-  id            String       @id @default(cuid())
-  partnershipId String
-  userId        String?      // owner of this account (used for relative Mine/Partner display)
-  ownerLabel    String       @default("MINE") // kept for compatibility
-  name          String
-  type          String       // "CHECKING" | "SAVINGS" | "INVESTMENT" | "CREDIT" | "OTHER"
-  balance       Float
-  institution   String?
-  createdAt     DateTime     @default(now())
-  partnership   Partnership  @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
-  transactions  Transaction[]
-}
-
-model Transaction {
   id            String      @id @default(cuid())
   partnershipId String
-  accountId     String
-  userId        String?     // who entered this (for viewer-relative display)
-  ownerLabel    String      // "MINE" | "PARTNER" | "JOINT"
-  merchant      String
-  amount        Float
-  category      String
-  date          DateTime
-  notes         String?
+  userId        String?     // owner of this account (used for relative Mine/Partner display)
+  ownerLabel    String      @default("MINE") // kept for compatibility
+  name          String
+  type          String      // "CHECKING" | "SAVINGS" | "INVESTMENT" | "CREDIT" | "OTHER"
+  balance       Float
+  institution   String?
   createdAt     DateTime    @default(now())
   partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
-  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }
 
 model Goal {
@@ -113,17 +100,33 @@ model GoalAllocation {
   @@index([userId])
 }
 
-model Budget {
-  id              String      @id @default(cuid())
-  partnershipId   String
-  month           String      // "2026-04" (YYYY-MM)
-  category        String
-  suggestedAmount Float
-  userAmount      Float?      // user-set override; null = use suggestedAmount
-  generatedAt     DateTime    @default(now())
-  partnership     Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+model BudgetFixed {
+  id            String      @id @default(cuid())
+  partnershipId String
+  category      String
+  amount        Float
+  notes         String?
+  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime    @default(now())
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
 
-  @@unique([partnershipId, month, category])
+  @@unique([partnershipId, category])
+  @@index([partnershipId])
+}
+
+model BudgetVariable {
+  id            String      @id @default(cuid())
+  partnershipId String
+  userId        String
+  category      String
+  amount        Float
+  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime    @default(now())
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([partnershipId, userId, category])
+  @@index([partnershipId])
 }
 
 model Feedback {
@@ -138,4 +141,67 @@ model Feedback {
 
   @@index([page, createdAt])
   @@index([createdAt])
+}
+
+// Life Planning - stores shared vision from conversational flow
+model LifePlan {
+  id              String   @id @default(cuid())
+  partnershipId   String
+  visionStatement String   // The shared vision statement (1-2 sentences)
+  roadmap         Json     // AI-generated 12-month action roadmap
+  priorities      Json     // Ranked priorities from value conflict exercise
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  partnership     Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+
+  @@index([partnershipId])
+}
+
+// Decisions logged from Monthly Review
+model Decision {
+  id              String   @id @default(cuid())
+  partnershipId   String
+  title           String   // Short title (e.g., "Hold off on car purchase")
+  context         String   // What led to this decision
+  outcome         String?  // Final decision text
+  category        String   @default("OTHER") // SPENDING, TIMING, PRIORITY, OTHER
+  createdAt       DateTime @default(now())
+
+  partnership     Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  history         DecisionHistory[]
+
+  @@index([partnershipId])
+  @@index([createdAt])
+}
+
+// Track decision changes over time
+model DecisionHistory {
+  id              String   @id @default(cuid())
+  decisionId      String
+  previousOutcome String?
+  newOutcome      String?
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  decision        Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([decisionId])
+}
+
+// Monthly Review tracking
+model ReviewHistory {
+  id               String   @id @default(cuid())
+  partnershipId    String
+  completedAt      DateTime @default(now())
+  month            String   // "2026-04" format
+  insight          String?  // The ONE insight discussed
+  decisionsCreated Int      @default(0)
+  mood             String?
+  skipped          Boolean  @default(false)
+
+  partnership      Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+
+  @@unique([partnershipId, month])
+  @@index([partnershipId])
 }

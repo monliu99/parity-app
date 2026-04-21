@@ -7,8 +7,6 @@ import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
-  CreditCard,
-  ArrowLeftRight,
   Target,
   MessageCircle,
   PieChart,
@@ -16,15 +14,16 @@ import {
   LogOut,
   ChevronUp,
   Shield,
+  Sparkles,
+  Calendar,
 } from "lucide-react";
 
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/accounts", label: "Accounts", icon: CreditCard },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+  { href: "/life-planning", label: "Life Plan", icon: Sparkles },
   { href: "/budget", label: "Budget", icon: PieChart },
   { href: "/goals", label: "Goals", icon: Target },
-  { href: "/chat", label: "Ask Parity", icon: MessageCircle },
+  { href: "/review", label: "Monthly Review", icon: Calendar },
 ];
 
 interface NavProps {
@@ -78,11 +77,26 @@ export default function Nav({ user }: NavProps) {
   return (
     <nav className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-6 border-b border-border flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-        <span className="text-xl tracking-tight text-foreground font-heading italic">
-          Parity
-        </span>
+      <div className="px-5 py-6 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+          <span className="text-xl tracking-tight text-foreground font-heading italic">
+            Parity
+          </span>
+        </div>
+        <Link
+          href="/chat"
+          title="Ask Parity"
+          aria-label="Ask Parity"
+          className={cn(
+            "p-1 rounded-md transition-colors",
+            pathname === "/chat"
+              ? "text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <MessageCircle className="h-4 w-4" />
+        </Link>
       </div>
 
       {/* Main nav */}

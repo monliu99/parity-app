@@ -1,15 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Account, Transaction, Goal } from "@/app/generated/prisma/client";
+import type { Account, Goal } from "@/app/generated/prisma/client";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-type TransactionWithAccount = Transaction & { account: { name: string } };
 
 export async function askParity(
   question: string,
   accounts: Account[],
-  transactions: TransactionWithAccount[],
-  goals: Goal[]
+  goals: Goal[],
+  budgetBaseline?: { monthlyFixed: number; monthlyVariable: number; categories: { category: string; amount: number; type: string }[] } | null
 ): Promise<string> {
   const accountsContext = accounts.map((a) => ({
     name: a.name,
@@ -17,15 +15,6 @@ export async function askParity(
     owner: a.ownerLabel === "MINE" ? "Mine" : "Partner's",
     balance: a.balance,
     institution: a.institution,
-  }));
-
-  const txContext = transactions.slice(0, 100).map((t) => ({
-    merchant: t.merchant,
-    amount: t.amount,
-    category: t.category,
-    date: new Date(t.date).toISOString().split("T")[0],
-    owner: t.ownerLabel === "MINE" ? "Mine" : "Partner's",
-    account: t.account.name,
   }));
 
   const goalsContext = goals.map((g) => ({
@@ -41,7 +30,7 @@ export async function askParity(
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 300,
-    system: `You are Parity, a financial assistant for couples. Answer questions about the couple's finances based on the data provided.
+    system: `You are Parity, a financial assistant for couples focused on relationship harmony and shared financial alignment. Answer questions based on the data provided.
 
 Rules:
 - Use "you" or "you both" — never say "your partner"
@@ -55,8 +44,8 @@ Rules:
         role: "user",
         content: `Financial data:
 Accounts: ${JSON.stringify(accountsContext)}
-Recent transactions (last 60 days): ${JSON.stringify(txContext)}
 Goals: ${JSON.stringify(goalsContext)}
+${budgetBaseline ? `Monthly life cost baseline: $${(budgetBaseline.monthlyFixed + budgetBaseline.monthlyVariable).toFixed(0)} (fixed: $${budgetBaseline.monthlyFixed.toFixed(0)}, variable: $${budgetBaseline.monthlyVariable.toFixed(0)})` : "No budget baseline set yet"}
 
 Question: ${question}`,
       },

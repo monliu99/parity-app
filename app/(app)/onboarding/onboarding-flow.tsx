@@ -76,7 +76,7 @@ export function OnboardingFlow({
         actionLabel={stepInfo.actionLabel}
         skipable={false}
         onSkip={handleSkip}
-        actionHref="/accounts"
+        actionHref="/settings/accounts"
       />
     );
   }
@@ -91,7 +91,7 @@ export function OnboardingFlow({
         actionLabel={stepInfo.actionLabel}
         skipable={stepInfo.skipable}
         onSkip={handleSkip}
-        actionHref="/transactions"
+        actionHref="/life-planning"
       />
     );
   }
