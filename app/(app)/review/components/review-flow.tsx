@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, CheckCircle2 } from "lucide-react";
+import { Calendar, CheckCircle2, RotateCcw } from "lucide-react";
 import { CelebrationCard } from "./celebration-card";
 import { InsightDiscussion } from "./insight-discussion";
 import { DecisionLogger } from "./decision-logger";
@@ -129,6 +129,20 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
             Nice work checking in together. We'll let you know when it's time for the next one.
           </p>
           <div className="flex gap-3 justify-center pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                startTransition(async () => {
+                  const { deleteCurrentMonthReview } = await import("../actions");
+                  await deleteCurrentMonthReview(currentMonth);
+                  setStep("prompt");
+                });
+              }}
+              disabled={isPending}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Restart this month's review
+            </Button>
             <Button variant="outline" onClick={() => (window.location.href = "/dashboard")}>
               Back to Dashboard
             </Button>

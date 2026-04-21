@@ -3,16 +3,16 @@
 import { useState, useTransition } from "react";
 import type { LifePlan } from "@/app/generated/prisma/client";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Target, Map, Plus } from "lucide-react";
+import { Sparkles, Target, Map, Plus, AlertTriangle } from "lucide-react";
 import { RoadmapToGoals } from "./roadmap-to-goals";
-import { suggestGoalsFromRoadmap } from "../actions";
+import { suggestGoalsFromRoadmap, deleteLifePlan } from "../actions";
 
 interface SavedLifePlanProps {
   lifePlan: LifePlan;
   onStartOver: () => void;
 }
 
-type ViewMode = "plan" | "create-goals";
+type ViewMode = "plan" | "create-goals" | "confirm-reset";
 
 export function SavedLifePlan({ lifePlan, onStartOver }: SavedLifePlanProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("plan");
@@ -91,6 +91,49 @@ export function SavedLifePlan({ lifePlan, onStartOver }: SavedLifePlanProps) {
     );
   }
 
+  // Show confirmation dialog for reset
+  if (viewMode === "confirm-reset") {
+    return (
+      <div className="max-w-xl">
+        <div className="bg-card border rounded-xl p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <h3 className="font-semibold">Reset your life plan?</h3>
+              <p className="text-sm text-muted-foreground">
+                This will permanently delete your current vision, priorities, and roadmap. You'll start fresh from the beginning.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                You can always create a new plan, but you won't be able to recover this one.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setViewMode("plan")}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                startTransition(async () => {
+                  await deleteLifePlan(lifePlan.id);
+                  onStartOver();
+                });
+              }}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Yes, delete it"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const immediate = roadmap.filter((r) => r.month <= 1);
   const shortTerm = roadmap.filter((r) => r.month > 1 && r.month <= 6);
   const midTerm = roadmap.filter((r) => r.month > 6);
@@ -163,8 +206,8 @@ export function SavedLifePlan({ lifePlan, onStartOver }: SavedLifePlanProps) {
           {isPending ? "Loading..." : "Create goals from roadmap"}
         </Button>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={onStartOver}>
-            Create New Plan
+          <Button variant="outline" onClick={() => setViewMode("confirm-reset")}>
+            Reset Plan
           </Button>
           <Button onClick={() => (window.location.href = "/goals")}>
             See Your Goals

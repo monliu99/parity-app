@@ -15,40 +15,53 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-// --- Q1: Unified value question ---
+// --- Q1: Elucidation hypothesis ---
 const Q1_OPTIONS = [
   { value: 3, label: "Yes" },
   { value: 2, label: "Not sure" },
   { value: 1, label: "No" },
 ];
 
-// --- Q2: Action taken question ---
+// --- Q2: Conversation-enabling hypothesis ---
 const Q2_OPTIONS = [
+  { value: 3, label: "Yes" },
+  { value: 2, label: "Not sure" },
+  { value: 1, label: "No" },
+];
+
+// --- Q3: Action taken question ---
+const Q3_OPTIONS = [
   "Just looked",
   "Discussed with my partner",
   "Made a change to our finances",
-  "Want to act but need more guidance",
+  "Nothing yet",
 ];
 
 // --- Format answers for storage ---
 function formatAnswers(
   q1Selection: number | null,
-  q2Selection: string | null,
-  q3Text: string
+  q2Selection: number | null,
+  q3Selection: string | null,
+  q4Text: string
 ): string {
   const parts: string[] = [];
 
   const q1Label = Q1_OPTIONS.find((o) => o.value === q1Selection)?.label;
   if (q1Label) {
-    parts.push(`Did this help you notice something new or have a conversation? ${q1Label}`);
+    parts.push(`Did this help you discover or articulate something about your shared future? ${q1Label}`);
   }
 
-  if (q2Selection) {
-    parts.push(`What did you do? ${q2Selection}`);
+  const q2Label = Q2_OPTIONS.find((o) => o.value === q2Selection)?.label;
+  if (q2Label) {
+    parts.push(`Did this help you have a conversation you were avoiding? ${q2Label}`);
   }
 
-  if (q3Text.trim()) {
-    parts.push(`\nTell us more:\n${q3Text.trim()}`);
+  if (q3Selection) {
+    parts.push(`What happened next? ${q3Selection}`);
+  }
+
+  if (q4Text.trim()) {
+    parts.push(`\nTell us more:\n${q4Text.trim()}`);
   }
 
   return parts.join("\n\n");
@@ -60,8 +73,9 @@ export function FeedbackWidget() {
 
   const [open, setOpen] = useState(false);
   const [q1Selection, setQ1Selection] = useState<number | null>(null);
-  const [q2Selection, setQ2Selection] = useState<string | null>(null);
-  const [q3Text, setQ3Text] = useState("");
+  const [q2Selection, setQ2Selection] = useState<number | null>(null);
+  const [q3Selection, setQ3Selection] = useState<string | null>(null);
+  const [q4Text, setQ4Text] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -71,7 +85,8 @@ export function FeedbackWidget() {
   function reset() {
     setQ1Selection(null);
     setQ2Selection(null);
-    setQ3Text("");
+    setQ3Selection(null);
+    setQ4Text("");
     setError("");
     setDone(false);
     setLoading(false);
@@ -86,11 +101,15 @@ export function FeedbackWidget() {
       setError("Please answer the second question");
       return;
     }
+    if (q3Selection === null) {
+      setError("Please answer the third question");
+      return;
+    }
 
     setLoading(true);
     setError("");
 
-    const comment = formatAnswers(q1Selection, q2Selection, q3Text);
+    const comment = formatAnswers(q1Selection, q2Selection, q3Selection, q4Text);
 
     const result = await submitFeedback({
       rating: q1Selection,
@@ -144,10 +163,10 @@ export function FeedbackWidget() {
             </DialogHeader>
 
             <div className="flex flex-col gap-5 py-2">
-              {/* Q1: Unified value */}
+              {/* Q1: Elucidation hypothesis */}
               <div className="flex flex-col gap-2">
                 <p className="text-sm text-muted-foreground">
-                  Did seeing this together help you notice something new or have a conversation you wouldn&apos;t have had otherwise?
+                  Did this help you discover or articulate something about your shared future that you couldn&apos;t before?
                 </p>
                 <div className="flex gap-2">
                   {Q1_OPTIONS.map(({ value, label }) => (
@@ -168,20 +187,44 @@ export function FeedbackWidget() {
                 </div>
               </div>
 
-              {/* Q2: Action taken */}
+              {/* Q2: Conversation-enabling hypothesis */}
               <div className="flex flex-col gap-2">
                 <p className="text-sm text-muted-foreground">
-                  What did you do (or want to do) after seeing this?
+                  Did this help you have a conversation you were avoiding, or make a difficult one easier?
+                </p>
+                <div className="flex gap-2">
+                  {Q2_OPTIONS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setQ2Selection(value)}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none",
+                        q2Selection === value
+                          ? "border-primary bg-primary/8 text-foreground"
+                          : "border-border hover:border-primary/50 hover:bg-secondary text-muted-foreground"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Q3: Action taken */}
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  What happened next?
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {Q2_OPTIONS.map((option) => (
+                  {Q3_OPTIONS.map((option) => (
                     <button
                       key={option}
                       type="button"
-                      onClick={() => setQ2Selection(option)}
+                      onClick={() => setQ3Selection(option)}
                       className={cn(
                         "py-1.5 px-3 rounded-lg border text-sm font-medium transition-colors focus:outline-none text-left",
-                        q2Selection === option
+                        q3Selection === option
                           ? "border-primary bg-primary/8 text-foreground"
                           : "border-border hover:border-primary/50 hover:bg-secondary text-muted-foreground"
                       )}
@@ -192,15 +235,15 @@ export function FeedbackWidget() {
                 </div>
               </div>
 
-              {/* Q3: Optional elaboration */}
+              {/* Q4: Optional elaboration */}
               <div className="flex flex-col gap-2">
                 <p className="text-sm text-muted-foreground">
-                  Tell us more about what happened (or what would have helped)
+                  Tell us more
                   <span className="text-muted-foreground font-normal"> (optional)</span>
                 </p>
                 <textarea
-                  value={q3Text}
-                  onChange={(e) => setQ3Text(e.target.value)}
+                  value={q4Text}
+                  onChange={(e) => setQ4Text(e.target.value)}
                   placeholder="Share any additional thoughts…"
                   rows={2}
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"

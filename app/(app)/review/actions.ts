@@ -114,3 +114,19 @@ export async function getRecentReviews() {
 
   return { reviews };
 }
+
+export async function deleteCurrentMonthReview(month: string) {
+  const { partnership } = await getPartnership();
+
+  await db.reviewHistory.deleteMany({
+    where: {
+      partnershipId: partnership.id,
+      month,
+    },
+  });
+
+  invalidateReviewCache(partnership.id);
+  revalidatePath("/review");
+
+  return { success: true };
+}

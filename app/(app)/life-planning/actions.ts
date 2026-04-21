@@ -342,3 +342,19 @@ export async function createGoalsFromRoadmap(
 
   return { success: true, count: createdGoals.length };
 }
+
+export async function deleteLifePlan(lifePlanId: string) {
+  const { partnership } = await getPartnership();
+
+  await db.lifePlan.deleteMany({
+    where: {
+      id: lifePlanId,
+      partnershipId: partnership.id,
+    },
+  });
+
+  invalidateLifePlanCache(partnership.id);
+  revalidatePath("/life-planning");
+
+  return { success: true };
+}
