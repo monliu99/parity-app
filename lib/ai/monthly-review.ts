@@ -86,7 +86,7 @@ export async function generateReviewInsight(
   month: string,
   goals: Goal[],
   pastDecisions: Decision[],
-  budgetBaseline?: { monthlyFixed: number; monthlyVariable: number } | null
+  spendingSummary?: { thisMonth: number; lastMonth: number; baseline: number; topCategories: { category: string; amount: number }[] } | null
 ): Promise<ReviewInsight> {
   const cacheKey = `${partnershipId}:${month}`;
   const cached = insightCache.get(cacheKey);
@@ -95,9 +95,8 @@ export async function generateReviewInsight(
   }
 
   const monthStart = new Date(month);
-  const monthlyBaseline = budgetBaseline
-    ? budgetBaseline.monthlyFixed + budgetBaseline.monthlyVariable
-    : null;
+  const monthlySpending = spendingSummary?.thisMonth ?? null;
+  const baselineAmount = spendingSummary?.baseline ?? null;
 
   const goalsProgress = goals.map((g) => ({
     name: g.name,
@@ -135,7 +134,7 @@ Return ONLY valid JSON:
         {
           role: "user",
           content: `Monthly summary for ${month}:
-${monthlyBaseline ? `- Monthly life cost baseline: $${monthlyBaseline.toFixed(0)}` : "- No budget baseline set yet"}
+${monthlySpending ? `- This month's spending: $${monthlySpending.toFixed(0)}${baselineAmount ? ` (baseline: $${baselineAmount.toFixed(0)})` : ""}` : "- No spending data yet"}
 - Goals progress: ${JSON.stringify(goalsProgress)}
 - Recent decisions: ${JSON.stringify(relevantDecisions)}
 

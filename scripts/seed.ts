@@ -7,7 +7,7 @@
  *   - 1 partnership (invite code: DEMO42)
  *   - 7 accounts (2 joint, 3 Mo's, 2 Andrew's)
  *   - 4 goals at various progress levels
- *   - Fixed + variable budget estimates for both partners
+ *   - ~24 transactions across 3 months for both partners
  */
 
 import { config } from "dotenv";
@@ -29,8 +29,7 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Clear existing data
-  await db.budgetVariable.deleteMany({});
-  await db.budgetFixed.deleteMany({});
+  await db.transaction.deleteMany({});
   await db.goalContribution.deleteMany({});
   await db.goalAllocation.deleteMany({});
   await db.goal.deleteMany({});
@@ -68,7 +67,9 @@ async function main() {
   console.log("  ✓ Created partnership (invite code: DEMO42)");
 
   // Accounts
-  await (db.account.create as Function)({ data: { partnershipId: partnership.id, userId: null, ownerLabel: "JOINT", name: "Joint Checking", type: "CHECKING", balance: 15200, institution: "Chase" } });
+  const jointChecking: any = { id: "" };
+  const created_jointChecking = await (db.account.create as Function)({ data: { partnershipId: partnership.id, userId: null, ownerLabel: "JOINT", name: "Joint Checking", type: "CHECKING", balance: 15200, institution: "Chase" } });
+  jointChecking.id = created_jointChecking.id;
   await (db.account.create as Function)({ data: { partnershipId: partnership.id, userId: null, ownerLabel: "JOINT", name: "Joint Savings", type: "SAVINGS", balance: 35000, institution: "Ally" } });
   await (db.account.create as Function)({ data: { partnershipId: partnership.id, userId: mo.id, ownerLabel: "MINE", name: "Chase Checking", type: "CHECKING", balance: 8420, institution: "Chase" } });
   await (db.account.create as Function)({ data: { partnershipId: partnership.id, userId: mo.id, ownerLabel: "MINE", name: "Marcus Savings", type: "SAVINGS", balance: 24000, institution: "Goldman Sachs" } });
@@ -117,44 +118,49 @@ async function main() {
 
   console.log("  ✓ Created goal allocations and contributions");
 
-  // Budget fixed costs (shared)
-  await db.budgetFixed.createMany({
-    data: [
-      { partnershipId: partnership.id, category: "Rent", amount: 3800 },
-      { partnershipId: partnership.id, category: "Utilities", amount: 120 },
-      { partnershipId: partnership.id, category: "Insurance", amount: 280 },
-      { partnershipId: partnership.id, category: "Subscriptions", amount: 95 },
-      { partnershipId: partnership.id, category: "Internet", amount: 65 },
-    ],
-  });
+  // Transactions — 3 months of demo data
+  const now = new Date();
+  const txData: any[] = [];
 
-  console.log("  ✓ Created fixed budget costs");
+  for (let monthsAgo = 0; monthsAgo < 3; monthsAgo++) {
+    const month = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
 
-  // Budget variable estimates — Mo's estimates
-  await db.budgetVariable.createMany({
-    data: [
-      { partnershipId: partnership.id, userId: mo.id, category: "Groceries + Dining", amount: 800 },
-      { partnershipId: partnership.id, userId: mo.id, category: "Transport", amount: 150 },
-      { partnershipId: partnership.id, userId: mo.id, category: "Fun + Entertainment", amount: 200 },
-      { partnershipId: partnership.id, userId: mo.id, category: "Personal Care", amount: 100 },
-      { partnershipId: partnership.id, userId: mo.id, category: "Health", amount: 300 },
-      { partnershipId: partnership.id, userId: mo.id, category: "Shopping", amount: 250 },
-    ],
-  });
+    // Shared expenses (Mo enters, joint checking)
+    txData.push(
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: 3800, category: "Housing", date: new Date(month.getFullYear(), month.getMonth(), 1), description: "Rent", merchant: "Property Manager" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: 120, category: "Housing", date: new Date(month.getFullYear(), month.getMonth(), 5), description: "Utilities", merchant: "ConEd" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: 280, category: "Insurance", date: new Date(month.getFullYear(), month.getMonth(), 1), description: "Renters insurance", merchant: "Lemonade" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: 95, category: "Subscriptions", date: new Date(month.getFullYear(), month.getMonth(), 3), description: "Shared subscriptions", merchant: "Various" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: 65, category: "Housing", date: new Date(month.getFullYear(), month.getMonth(), 8), description: "Internet", merchant: "Spectrum" },
+    );
 
-  // Andrew's estimates — some differ to show gap detection
-  await db.budgetVariable.createMany({
-    data: [
-      { partnershipId: partnership.id, userId: andrew.id, category: "Groceries + Dining", amount: 1200 },
-      { partnershipId: partnership.id, userId: andrew.id, category: "Transport", amount: 200 },
-      { partnershipId: partnership.id, userId: andrew.id, category: "Fun + Entertainment", amount: 350 },
-      { partnershipId: partnership.id, userId: andrew.id, category: "Personal Care", amount: 100 },
-      { partnershipId: partnership.id, userId: andrew.id, category: "Health", amount: 300 },
-      { partnershipId: partnership.id, userId: andrew.id, category: "Shopping", amount: 150 },
-    ],
-  });
+    // Mo's variable spending (varies slightly each month)
+    const moGroceries = [820, 780, 850][monthsAgo];
+    const moTransport = [145, 160, 130][monthsAgo];
+    const moFun = [180, 220, 195][monthsAgo];
+    txData.push(
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: moGroceries, category: "Groceries + Dining", date: new Date(month.getFullYear(), month.getMonth(), 12), description: "Groceries + eating out", merchant: "Various" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: moTransport, category: "Transport", date: new Date(month.getFullYear(), month.getMonth(), 10), description: "Subway + Uber", merchant: "MTA" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: moFun, category: "Fun + Entertainment", date: new Date(month.getFullYear(), month.getMonth(), 15), description: "Movies, drinks, etc.", merchant: "Various" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: 100, category: "Personal Care", date: new Date(month.getFullYear(), month.getMonth(), 20), description: "Haircut + grooming", merchant: "Barber" },
+      { partnershipId: partnership.id, userId: mo.id, accountId: jointChecking.id, amount: [240, 180, 320][monthsAgo], category: "Shopping", date: new Date(month.getFullYear(), month.getMonth(), 18), description: "Misc shopping", merchant: "Amazon" },
+    );
 
-  console.log("  ✓ Created variable budget estimates for both partners (with gaps for demo)");
+    // Andrew's variable spending
+    const andrewGroceries = [1100, 1250, 980][monthsAgo];
+    const andrewTransport = [190, 170, 210][monthsAgo];
+    const andrewFun = [300, 280, 340][monthsAgo];
+    txData.push(
+      { partnershipId: partnership.id, userId: andrew.id, accountId: jointChecking.id, amount: andrewGroceries, category: "Groceries + Dining", date: new Date(month.getFullYear(), month.getMonth(), 11), description: "Groceries + takeout", merchant: "Various" },
+      { partnershipId: partnership.id, userId: andrew.id, accountId: jointChecking.id, amount: andrewTransport, category: "Transport", date: new Date(month.getFullYear(), month.getMonth(), 9), description: "Gas + parking", merchant: "Shell" },
+      { partnershipId: partnership.id, userId: andrew.id, accountId: jointChecking.id, amount: andrewFun, category: "Fun + Entertainment", date: new Date(month.getFullYear(), month.getMonth(), 14), description: "Concerts, games, etc.", merchant: "Ticketmaster" },
+      { partnershipId: partnership.id, userId: andrew.id, accountId: jointChecking.id, amount: 100, category: "Personal Care", date: new Date(month.getFullYear(), month.getMonth(), 22), description: "Personal care", merchant: "CVS" },
+    );
+  }
+
+  await db.transaction.createMany({ data: txData });
+
+  console.log(`  ✓ Created ${txData.length} transactions across 3 months`);
   console.log("\n✅ Seed complete!");
   console.log("\nLogin credentials:");
   console.log("  mo@parity.app       / password");

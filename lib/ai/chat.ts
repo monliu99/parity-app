@@ -7,7 +7,7 @@ export async function askParity(
   question: string,
   accounts: Account[],
   goals: Goal[],
-  budgetBaseline?: { monthlyFixed: number; monthlyVariable: number; categories: { category: string; amount: number; type: string }[] } | null
+  monthlySpending?: number | null
 ): Promise<string> {
   const accountsContext = accounts.map((a) => ({
     name: a.name,
@@ -45,7 +45,7 @@ Rules:
         content: `Financial data:
 Accounts: ${JSON.stringify(accountsContext)}
 Goals: ${JSON.stringify(goalsContext)}
-${budgetBaseline ? `Monthly life cost baseline: $${(budgetBaseline.monthlyFixed + budgetBaseline.monthlyVariable).toFixed(0)} (fixed: $${budgetBaseline.monthlyFixed.toFixed(0)}, variable: $${budgetBaseline.monthlyVariable.toFixed(0)})` : "No budget baseline set yet"}
+${monthlySpending ? `Average monthly spending: $${monthlySpending.toFixed(0)}` : "No spending data yet"}
 
 Question: ${question}`,
       },

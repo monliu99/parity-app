@@ -15,7 +15,6 @@ import {
   LayoutDashboard,
   Target,
   MessageCircle,
-  PieChart,
   Settings,
   LogOut,
   Menu,
@@ -27,7 +26,6 @@ import {
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/life-planning", label: "Life Plan", icon: Sparkles },
-  { href: "/budget", label: "Budget", icon: PieChart },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/review", label: "Monthly Review", icon: Calendar },
 ];

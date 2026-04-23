@@ -4,11 +4,19 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckCircle2, RotateCcw } from "lucide-react";
 import { CelebrationCard } from "./celebration-card";
+import { SpendingSummary } from "./spending-summary";
 import { InsightDiscussion } from "./insight-discussion";
 import { DecisionLogger } from "./decision-logger";
 import { ScheduleNext } from "./schedule-next";
 
-type Step = "prompt" | "celebration" | "insight" | "decisions" | "schedule" | "done";
+type Step = "prompt" | "celebration" | "spending" | "insight" | "decisions" | "schedule" | "done";
+
+interface SpendingData {
+  thisMonth: number;
+  lastMonth: number;
+  baseline: number;
+  topCategories: { category: string; amount: number }[];
+}
 
 interface ReviewFlowProps {
   shouldReview: boolean;
@@ -22,6 +30,7 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
   const [step, setStep] = useState<Step>(shouldReview ? "prompt" : "done");
   const [isPending, startTransition] = useTransition();
   const [insight, setInsight] = useState<{ celebration: string; insight: string; frame: string } | null>(null);
+  const [spendingData, setSpendingData] = useState<SpendingData | null>(null);
   const [decisionsCount, setDecisionsCount] = useState(0);
 
   if (step === "prompt") {
@@ -45,6 +54,7 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
                 const { startReview } = await import("../actions");
                 const result = await startReview(currentMonth);
                 setInsight(result.insight);
+                setSpendingData(result.spendingSummary ?? null);
                 setStep("celebration");
               });
             }}
@@ -75,6 +85,18 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
     return (
       <CelebrationCard
         celebration={insight?.celebration || "You're making progress together."}
+        onNext={() => setStep("spending")}
+      />
+    );
+  }
+
+  if (step === "spending") {
+    return (
+      <SpendingSummary
+        thisMonth={spendingData?.thisMonth ?? 0}
+        lastMonth={spendingData?.lastMonth ?? 0}
+        baseline={spendingData?.baseline ?? 0}
+        topCategories={spendingData?.topCategories ?? []}
         onNext={() => setStep("insight")}
       />
     );
@@ -128,7 +150,7 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
           <p className="text-sm text-muted-foreground">
             Nice work checking in together. We'll let you know when it's time for the next one.
           </p>
-          <div className="flex gap-3 justify-center pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
             <Button
               variant="outline"
               onClick={() => {

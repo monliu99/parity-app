@@ -10,7 +10,7 @@ import {
   generateRoadmap,
   invalidateLifePlanCache,
 } from "@/lib/ai/life-planning";
-import { getMonthlyBaseline } from "@/lib/budget";
+import { getRollingBaseline, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
 
 export async function getLifePlanQuestions() {
@@ -30,10 +30,10 @@ export async function submitRealityCheck(visionAnswers: Record<string, string>) 
   const [accounts, goals, baseline] = await Promise.all([
     db.account.findMany({ where: { partnershipId: partnership.id } }),
     db.goal.findMany({ where: { partnershipId: partnership.id } }),
-    getMonthlyBaseline(partnership.id),
+    getRollingBaseline(partnership.id),
   ]);
 
-  const monthlyBaseline = baseline ? baseline.monthlyFixed + baseline.monthlyVariable : null;
+  const monthlyBaseline = baseline?.average ?? null;
   const check = await realityCheck(partnership.id, accounts, goals, visionAnswers, monthlyBaseline);
 
   return { realityCheck: check };
@@ -57,14 +57,15 @@ export async function generateFinalRoadmap(
 ) {
   const { partnership } = await getPartnership();
 
-  const [accounts, baseline, goals] = await Promise.all([
+  const [accounts, baseline, goals, topCats] = await Promise.all([
     db.account.findMany({ where: { partnershipId: partnership.id } }),
-    getMonthlyBaseline(partnership.id),
+    getRollingBaseline(partnership.id),
     db.goal.findMany({ where: { partnershipId: partnership.id } }),
+    getTopCategories(partnership.id, `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`),
   ]);
 
   const netWorth = accounts.reduce((sum: number, a: { balance: number }) => sum + a.balance, 0);
-  const monthlySpending = baseline ? baseline.monthlyFixed + baseline.monthlyVariable : 0;
+  const monthlySpending = baseline?.average ?? 0;
 
   // Build personalized context
   const jointAccounts = accounts.filter(a => !a.userId || a.ownerLabel === "JOINT");
@@ -93,11 +94,9 @@ export async function generateFinalRoadmap(
   }));
 
   // Budget insights
-  const topSpendingCategories = baseline?.categories
-    .filter(c => c.type === "variable")
-    .sort((a, b) => b.amount - a.amount)
+  const topSpendingCategories = topCats
     .slice(0, 3)
-    .map(c => `${c.category} ($${c.amount.toFixed(0)}/mo)`) ?? [];
+    .map(c => `${c.category} ($${c.amount.toFixed(0)}/mo)`);
 
   let roadmap = await generateRoadmap(partnership.id, vision, priorities, {
     netWorth,
@@ -116,7 +115,7 @@ export async function generateFinalRoadmap(
     // Goals and budget
     goals: goalSummaries,
     topSpendingCategories,
-    hasBudget: baseline !== null,
+    hasBudget: baseline !== null && baseline.average > 0,
   });
 
   // Fallback roadmap if AI returns empty - personalized based on what they have
@@ -141,10 +140,10 @@ export async function generateFinalRoadmap(
       );
     }
 
-    // Suggest budget setup if they don't have one
+    // Suggest tracking spending if they don't have data
     if (!baseline) {
       fallbackRoadmap.push(
-        { month: 1, title: "Set up budget categories", description: "Track spending together to understand where money goes", category: "logistical" as const }
+        { month: 1, title: "Start tracking spending", description: "Add transactions to see where money goes together", category: "logistical" as const }
       );
     }
 

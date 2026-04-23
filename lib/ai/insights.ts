@@ -11,7 +11,7 @@ export async function getDashboardSynthesis(
   partnershipId: string,
   goals: Goal[],
   accounts: Account[],
-  budgetBaseline?: { monthlyFixed: number; monthlyVariable: number } | null
+  rollingBaseline?: { average: number } | null
 ): Promise<string> {
   const cached = synthesisCache.get(partnershipId);
   if (cached && Date.now() < cached.expiresAt) {
@@ -34,9 +34,7 @@ export async function getDashboardSynthesis(
     target: g.targetAmount,
   }));
 
-  const monthlyBaseline = budgetBaseline
-    ? budgetBaseline.monthlyFixed + budgetBaseline.monthlyVariable
-    : null;
+  const monthlyBaseline = rollingBaseline?.average ?? null;
 
   try {
     const message = await client.messages.create({
@@ -49,19 +47,19 @@ Rules:
 - 2-3 bullets, 10-20 words each — write like a human talking to a friend
 - Neutral observations, never judgments
 - Forward-looking when natural
-- Focus on: net worth direction, goal pacing, and how their life cost aligns with their goals
-- EACH bullet must start with a label in brackets: [Net Worth], [Goals], [Budget]
+- Focus on: net worth direction, goal pacing, and how their spending aligns with their goals
+- EACH bullet must start with a label in brackets: [Net Worth], [Goals], [Spending]
 - MUST separate each bullet with exactly this:  |||
 
 Example format:
-[Net Worth] You're building a solid foundation together — combined net worth is growing steadily. ||| [Goals] The emergency fund is 40% of the way there — you're on track for the target date. ||| [Budget] Your life baseline fits comfortably within what you'd need to hit your goals.
+[Net Worth] You're building a solid foundation together — combined net worth is growing steadily. ||| [Goals] The emergency fund is 40% of the way there — you're on track for the target date. ||| [Spending] Your monthly spending fits comfortably within what you'd need to hit your goals.
 
 Return ONLY the bullets separated by |||, nothing else.`,
       messages: [
         {
           role: "user",
           content: `Net worth: $${netWorth.toFixed(0)}
-${monthlyBaseline ? `Monthly life cost baseline: $${monthlyBaseline.toFixed(0)}` : "No budget baseline set yet"}
+${monthlyBaseline ? `Average monthly spending (3-month rolling): $${monthlyBaseline.toFixed(0)}` : "No spending data yet"}
 Goals: ${JSON.stringify(goalsContext)}
 
 Write the synthesis.`,

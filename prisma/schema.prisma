@@ -16,7 +16,7 @@ model User {
   memberships     Membership[]
   contributions   GoalContribution[]
   goalAllocations GoalAllocation[]
-  budgetVariable  BudgetVariable[]
+  transactions Transaction[]
 }
 
 model Partnership {
@@ -26,8 +26,7 @@ model Partnership {
   members        Membership[]
   accounts       Account[]
   goals          Goal[]
-  budgetFixed    BudgetFixed[]
-  budgetVariable BudgetVariable[]
+  transactions   Transaction[]
   lifePlans      LifePlan[]
   decisions      Decision[]
   reviewHistory  ReviewHistory[]
@@ -54,6 +53,7 @@ model Account {
   institution   String?
   createdAt     DateTime    @default(now())
   partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
 }
 
 model Goal {
@@ -100,33 +100,26 @@ model GoalAllocation {
   @@index([userId])
 }
 
-model BudgetFixed {
-  id            String      @id @default(cuid())
-  partnershipId String
-  category      String
-  amount        Float
-  notes         String?
-  updatedAt     DateTime    @updatedAt
-  createdAt     DateTime    @default(now())
-  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
-
-  @@unique([partnershipId, category])
-  @@index([partnershipId])
-}
-
-model BudgetVariable {
+model Transaction {
   id            String      @id @default(cuid())
   partnershipId String
   userId        String
-  category      String
+  accountId     String?
   amount        Float
-  updatedAt     DateTime    @updatedAt
+  category      String
+  date          DateTime
+  description   String?
+  merchant      String?
   createdAt     DateTime    @default(now())
-  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([partnershipId, userId, category])
+  partnership   Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  account       Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  user          User        @relation(fields: [userId], references: [id])
+
   @@index([partnershipId])
+  @@index([partnershipId, date])
+  @@index([partnershipId, category])
+  @@index([userId])
 }
 
 model Feedback {

@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { checkReviewSignal, generateReviewInsight, invalidateReviewCache } from "@/lib/ai/monthly-review";
-import { getMonthlyBaseline } from "@/lib/budget";
+import { getSpendingComparison, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
 
 export async function checkReviewNeeded() {
@@ -23,25 +23,33 @@ export async function checkReviewNeeded() {
 export async function startReview(month: string) {
   const { partnership } = await getPartnership();
 
-  const [goals, decisions, baseline] = await Promise.all([
+  const [goals, decisions, spending, topCategories] = await Promise.all([
     db.goal.findMany({ where: { partnershipId: partnership.id } }),
     db.decision.findMany({
       where: { partnershipId: partnership.id },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    getMonthlyBaseline(partnership.id),
+    getSpendingComparison(partnership.id, month),
+    getTopCategories(partnership.id, month),
   ]);
+
+  const spendingSummary = {
+    thisMonth: spending.thisMonth,
+    lastMonth: spending.lastMonth,
+    baseline: spending.baseline,
+    topCategories,
+  };
 
   const insight = await generateReviewInsight(
     partnership.id,
     month,
     goals,
     decisions,
-    baseline
+    spendingSummary
   );
 
-  return { insight, month };
+  return { insight, month, spendingSummary };
 }
 
 export async function logDecision(data: {
