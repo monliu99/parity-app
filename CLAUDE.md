@@ -40,32 +40,59 @@ Two layers: Edge (`proxy.ts`) + Server (`getPartnership()`). Always scope querie
 
 ### Data model
 ```
-User, Partnership, Membership (max 2), Account, Transaction, Goal
+User, Partnership, Membership (max 2), Account, Transaction, Budget, Goal
 ```
 
 **Viewer-relative ownership:** `ownerLabel` is from the *enterer's* perspective. Check `record.userId === currentUserId` to display correctly.
 
+### Pages (app/(app)/)
+- `/dashboard` — Financial overview: synthesis card, net worth, spending trends (MoM bar chart), budget status, goals progress, account highlights
+- `/accounts` — Account management (joint/personal)
+- `/transactions` — Transaction list with month grouping, colored category badges
+- `/goals` — Shared goal tracking
+- `/budget` — AI-generated budget suggestions per category with user overrides
+- `/chat` — AI Q&A ("Ask Parity")
+- `/settings` — Partnership management
+- `/life-planning` — Conversational life planning flow (vision → priorities → roadmap)
+- `/review` — Monthly review with spending summary step
+- `/onboarding` — 3-step wizard (account → transaction → goal)
+
+### Dashboard components
+- `synthesis-card.tsx` — AI narrative insight ("Parity's take")
+- `spending-trends-chart.tsx` — MoM grouped bar chart, top 8 categories
+- `life-plan-card.tsx` — Collapsible shared vision with current roadmap action
+
 ### AI features
 All use Anthropic SDK directly (no streaming), currently `claude-haiku-4-5-20251001`:
-- `lib/ai/categorize.ts` — Transaction categorization
-- `lib/ai/insights.ts` — Dashboard synthesis
-- `lib/ai/chat.ts` — Q&A ("Ask Parity")
-- `lib/ai/budget.ts` — Budget suggestions and insights
+- `lib/ai/categorize.ts` — Transaction categorization (11 categories)
+- `lib/ai/insights.ts` — Dashboard synthesis (narrative) + spending insights (structured)
+- `lib/ai/chat.ts` — Q&A with full transaction context (60-day window)
+- `lib/ai/life-planning.ts` — Vision, reality check, priorities, roadmap generation
+- `lib/ai/monthly-review.ts` — Review signal detection + insight generation
+- `lib/ai/goal-inference.ts` — Auto-generate goals from life plan roadmap
 
 ### Design system
 **Type scale:** 4 tiers only. Hero (`text-3xl`), Title (`text-2xl`), Body (`text-sm`), Meta (`text-xs`). Same line = same tier.
 
 **Colors:** Positive: `text-emerald-600`. Warning: `text-amber-700` (never `text-red-*`).
 
+**Category colors:** `lib/category-colors.ts` — badge classes and chart hex values for all 11 spending categories.
+
 **UI components:** No `asChild` — use `render={<element />}`. `Select.onValueChange` passes `string | null` — guard with `(v) => v && setState(v)`.
+
+### Navigation
+- **Desktop:** `components/nav.tsx` — sidebar with Dashboard, Accounts, Transactions, Budget, Goals, Ask Parity
+- **Mobile:** `components/mobile-nav.tsx` — slide-out Sheet with same nav items
 
 ## Current State
 
-**Original MVP (Phase 1):** Live at [withparity.vercel.app](https://withparity.vercel.app). Dashboard, goals, transactions, budget, AI chat.
+**MVP 2.0 (on `alignment` branch, merging to `main`):** Shifted from budget-centric to transaction-centric. Budget is now AI-generated suggestions (not manual fixed/variable). Dashboard shows spending trends, cash flow, and budget tracking. Transaction model replaced BudgetFixed/BudgetVariable.
 
-**Current focus (on `alignment` branch):** Building new MVP centered on **financial alignment for relationship harmony**. Three core features:
-1. **Life Planning** — Design your shared life together (entry for Aligners/Planners)
-2. **Shared Goals** — Track progress toward your dreams as "ours" not "mine + yours"
-3. **Monthly Review** — 15-minute guided check-in to stay on track
-
-**Hypothesis:** Couples will find Parity elucidating — it helps them discover and articulate a shared vision they couldn't articulate alone, and enables conversations they were previously avoiding.
+**Core features:**
+1. **Dashboard** — Net worth, spending trends (MoM chart), budget status, goals, AI synthesis
+2. **Accounts + Transactions** — Full CRUD with colored categories, AI auto-categorization
+3. **Budget** — AI-generated per-category suggestions with user overrides
+4. **Life Planning** — Conversational flow generating shared vision, priorities, roadmap
+5. **Goals** — Auto-generated from roadmap + manual creation
+6. **Monthly Review** — Guided check-in with spending summary step
+7. **Chat** — Context-aware AI Q&A
