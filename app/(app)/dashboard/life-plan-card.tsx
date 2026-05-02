@@ -58,7 +58,7 @@ function ProgressRing({
         />
       </svg>
       <span className="text-xs text-muted-foreground tabular-nums" aria-hidden="true">
-        {completed} of {total}
+        {completed} of {total} actions
       </span>
     </div>
   );
