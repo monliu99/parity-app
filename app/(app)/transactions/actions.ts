@@ -59,7 +59,7 @@ export async function createTransaction(formData: FormData) {
       },
     });
 
-    revalidatePath("/settings/transactions");
+    revalidatePath("/transactions");
     revalidatePath("/dashboard");
     revalidatePath("/review");
     return { success: true };
@@ -100,7 +100,7 @@ export async function updateTransaction(id: string, formData: FormData) {
       data: { description: description || null, amount, category, date, merchant },
     });
 
-    revalidatePath("/settings/transactions");
+    revalidatePath("/transactions");
     revalidatePath("/dashboard");
     revalidatePath("/review");
     return { success: true };
@@ -123,7 +123,7 @@ export async function deleteTransaction(id: string) {
       where: { id, partnershipId: partnership.id },
     });
 
-    revalidatePath("/settings/transactions");
+    revalidatePath("/transactions");
     revalidatePath("/dashboard");
     revalidatePath("/review");
     return { success: true };

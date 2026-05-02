@@ -76,7 +76,7 @@ export function OnboardingFlow({
         actionLabel={stepInfo.actionLabel}
         skipable={false}
         onSkip={handleSkip}
-        actionHref="/settings/accounts"
+        actionHref="/accounts"
       />
     );
   }

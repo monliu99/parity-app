@@ -8,8 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CopyInviteCode } from "./copy-invite-code";
-import Link from "next/link";
-import { CreditCard, ChevronRight, Receipt } from "lucide-react";
 
 export default async function SettingsPage() {
   const { partnership, userId } = await getPartnership();
@@ -28,48 +26,6 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your partnership.</p>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-bold">Accounts & Net Worth</CardTitle>
-          <CardDescription>
-            Manage your accounts and track combined net worth.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/settings/accounts"
-            className="flex items-center justify-between p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Manage accounts</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-bold">Transactions</CardTitle>
-          <CardDescription>
-            Track spending to see your monthly baseline.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/settings/transactions"
-            className="flex items-center justify-between p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Receipt className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Manage transactions</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

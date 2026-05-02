@@ -94,7 +94,7 @@ export async function getInitialQuestions(
 
   try {
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5-20251001",
       max_tokens: 500,
       system: `You are Parity's life planning assistant for couples. Generate 5 conversational opening questions to understand their shared vision.
 
@@ -147,7 +147,7 @@ export async function processSharedVision(
 ): Promise<string> {
   try {
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5-20251001",
       max_tokens: 400,
       system: `You are Parity's life planning assistant. Synthesize a couple's shared vision into 2-3 sentences.
 
@@ -211,7 +211,7 @@ export async function realityCheck(
       : "";
 
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5-20251001",
       max_tokens: 500,
       system: `You are Parity's life planning assistant. Ground their vision in financial reality — gently.
 
@@ -258,7 +258,7 @@ export async function prioritizeValues(
 
   try {
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5-20251001",
       max_tokens: 600,
       system: `You are Parity's life planning assistant. Help couples rank their financial priorities and surface value conflicts.
 
@@ -346,7 +346,7 @@ export async function generateRoadmap(
     }
 
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5-20251001",
       max_tokens: 800,
       system: `You are Parity's life planning assistant. Generate a 12-month action roadmap based on their vision, priorities, and CURRENT financial setup.
 

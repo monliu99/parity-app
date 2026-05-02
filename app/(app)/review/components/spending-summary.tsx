@@ -43,7 +43,7 @@ export function SpendingSummary({
     if (!quickDesc || !quickAmount) return;
 
     startTransition(async () => {
-      const { createTransaction } = await import("../../settings/transactions/actions");
+      const { createTransaction } = await import("../../transactions/actions");
       const formData = new FormData();
       formData.set("description", quickDesc);
       formData.set("amount", quickAmount);

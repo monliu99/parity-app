@@ -104,6 +104,81 @@ Features that make Parity a sticky, shareable product.
 
 ---
 
+## User Feedback
+
+Running log of feedback from testers. Each entry maps requests to roadmap phases and flags items for team discussion.
+
+---
+
+### [2026-04-30] Bryce & Emily
+
+**Context:** Early test couple. Submitted in-app feedback (dashboard, rating: 😄) then followed up with detailed email.
+
+**What they loved:**
+- Clean, visually appealing UI
+- Life goals / vision prompts as conversation starters for couples avoiding the money talk
+- Core concept — both see clear value and would pay for it
+
+**Requests mapped to roadmap:**
+
+| Request | Phase | Notes |
+|---|---|---|
+| Bank integration / auto-categorization | Phase 2 (Plaid) | Their #1 ask — validates top priority |
+| Account privacy toggle (keep some things separate) | Phase 2 | Needs clearer signposting in UI |
+| Budget limits + notifications when approaching limit | Phase 5 | Per-category monthly alerts |
+| Scenario planning ("if I buy an Audi, how long to recover?") | Phase 3 | Savings recovery projections |
+| Investment portfolio view | Phase 4 | Vanguard API mentioned |
+| Net worth over time / savings progress projection | Phase 4 | |
+| Credit score estimation (like Chase CC) | Not scoped | Worth revisiting in Phase 4+ |
+| Receipt-level transaction splitting (Target run = groceries + household + kids) | Not scoped | Acknowledged hard problem; Tom flagged too |
+| "Spreadsheet / power user" view (budget + income by month, detailed projections) | Not scoped | Tension with clean UI — needs team discussion |
+
+**Needs team discussion:**
+
+- **Finance splitting model as onboarding question** — Emily flagged that the "Bryce / Emily" ownership labels felt jarring — they share everything and the split view implied one person owned each transaction. Other couples only share some expenses. Suggestion: make "How do you split your finances?" an early onboarding question and adapt labeling accordingly. Important: assigning his/hers labels can reinforce unhealthy patterns — against core thesis.
+- **Privacy controls UX** — Not immediately clear how per-account privacy works. Needs a clearer entry point in settings or onboarding.
+- **Data privacy messaging** — Both asked about safeguards. Worth a brief explainer in settings or onboarding.
+
+**Overall sentiment:** Strongly positive. *"I'm asking hard questions because I think you did a good job."* — Emily
+
+---
+
+### [2026-04-30] Arushi (submitted via email)
+
+**Context:** Team member. Tested with a partner. Submitted detailed written feedback via email instead of in-app widget.
+
+**What they loved:**
+- Life Planning module — *"the strongest part of the product and genuinely exciting"*
+- Reframed how they think about financial conversations — not just about saving/constraints, but using resources to create meaningful experiences together
+- Helped surface gaps they hadn't considered (e.g., full cost of moving back to India)
+
+**Requests mapped to roadmap:**
+
+| Request | Phase | Notes |
+|---|---|---|
+| Bank / financial account API integration | Phase 2 (Plaid) | Called out as essential for consistent long-term use |
+| AI categorization — high-level (essentials vs. discretionary) + user-defined subcategories | Phase 3 | Good framing — two-tier categorization |
+| Monthly Review: trend-based insights vs. prior months, overspending highlights | Phase 3 | Currently too static |
+| Life Planning: custom milestone timelines (e.g., "wedding in 2 years, child in 5 years") | Phase 3 | Instead of generic "3-5 year" buckets |
+| Life Planning: adaptive follow-up questions based on demographic inputs | Phase 3 | More personalized prompts |
+| Life Planning: reduce redundancy (e.g., repeated questions about children) | Phase 3 | Smarter question logic |
+| Life Planning: free-text / comment option in "What matters most" | Phase 3 | More nuance beyond multiple choice |
+| Life Planning: personalized 12-month roadmap (not generic) | Phase 3 | Currently feels template-like |
+| Life Planning: follow-up questions inline within roadmap view | Phase 3 | Avoid requiring navigation to Ask Parity |
+| Dashboard: clearer visualization of how partner inputs combine | Near-term UX | Viewer-relative model not immediately obvious |
+| Dashboard: more monthly and long-term insights | Phase 3 | |
+
+**Bugs / access issues:**
+- Ask Parity was not accessible in their demo profile — needs investigation (may be a demo account config issue)
+
+**Needs team discussion:**
+- **Life Planning is the differentiator** — this user explicitly called it the strongest part. Worth discussing whether it should be more prominently featured in the pitch and in the product flow.
+- **Roadmap personalization** — the 12-month roadmap feeling generic is a recurring risk. The AI generation may need richer input signals or a follow-up refinement step.
+
+**Overall sentiment:** Strongly positive. Genuine excitement about the concept and direction.
+
+---
+
 ## Decision Log
 
 | Decision | Rationale |

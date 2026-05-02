@@ -103,6 +103,32 @@ export async function getTopCategories(
     .slice(0, limit);
 }
 
+export async function getSpendingByUser(
+  partnershipId: string,
+  months: number = 3
+): Promise<{ userId: string; total: number; byCategory: Record<string, number> }[]> {
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
+
+  const transactions = await db.transaction.findMany({
+    where: { partnershipId, date: { gte: startDate } },
+    select: { userId: true, category: true, amount: true },
+  });
+
+  const byUser: Record<string, { total: number; byCategory: Record<string, number> }> = {};
+
+  for (const t of transactions) {
+    if (!byUser[t.userId]) {
+      byUser[t.userId] = { total: 0, byCategory: {} };
+    }
+    byUser[t.userId].total += t.amount;
+    byUser[t.userId].byCategory[t.category] =
+      (byUser[t.userId].byCategory[t.category] || 0) + t.amount;
+  }
+
+  return Object.entries(byUser).map(([userId, data]) => ({ userId, ...data }));
+}
+
 export async function getSpendingComparison(
   partnershipId: string,
   month: string

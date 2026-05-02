@@ -219,9 +219,7 @@ function GoalRow({
   const isComplete = goal.currentAmount >= goal.targetAmount;
 
   return (
-    <div
-      className="relative flex items-center gap-6 p-4 pr-16 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors group"
-    >
+    <div className="relative p-4 sm:pr-10 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors group">
       {/* Add progress button - top right corner */}
       {isActive && (
         <div className="absolute right-2 top-2">
@@ -236,8 +234,8 @@ function GoalRow({
         </div>
       )}
 
-      {/* Left side: goal title */}
-      <div className="w-56 shrink-0">
+      {/* Goal title */}
+      <div>
         {goal.targetDate && (
           <p className="text-xs text-muted-foreground mb-1">
             {formatDate(goal.targetDate)} · {getMonthsUntil(goal.targetDate)}
@@ -249,35 +247,51 @@ function GoalRow({
         )}
       </div>
 
-      {/* Progress bar + amount */}
-      <div className="flex items-center gap-6">
-        <div className="w-24">
+      {/* Progress bar + amounts */}
+      <div className="mt-3 flex items-center gap-4">
+        <div className="flex-1 min-w-0">
           <Progress value={pct} className="h-1.5" variant="moss" />
-          <div className="mt-0.5">
-            <span className="text-xs text-muted-foreground">{pct}%</span>
-            {isComplete && <span className="text-xs text-emerald-600 ml-1">✓</span>}
-          </div>
         </div>
-        <div className="text-right w-24">
-          <p className="text-sm font-semibold tabular-nums">
-            {formatCurrency(goal.currentAmount)}
-          </p>
-          <p className="text-xs text-muted-foreground tabular-nums">
-            of {formatCurrency(goal.targetAmount)}
-          </p>
+        <div className="shrink-0 text-right">
+          <span className="text-xs text-muted-foreground">{pct}%</span>
+          {isComplete && <span className="text-xs text-emerald-600 ml-1">✓</span>}
         </div>
       </div>
+      <div className="mt-1 flex justify-between">
+        <p className="text-xs font-semibold tabular-nums">
+          {formatCurrency(goal.currentAmount)}
+        </p>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          of {formatCurrency(goal.targetAmount)}
+        </p>
+      </div>
 
-      {/* Action buttons */}
-      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary rounded-md">
+      {/* Action buttons - inline on mobile, hover overlay on desktop */}
+      <div className="flex sm:hidden gap-1 mt-2 -mb-1 justify-end">
         <GoalForm
           goal={goal}
           trigger={
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-            >
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+              <Pencil className="h-3 w-3 mr-1" /> Edit
+            </Button>
+          }
+        />
+        <form
+          action={async () => {
+            "use server";
+            await deleteGoal(goal.id);
+          }}
+        >
+          <Button type="submit" variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-500 hover:text-red-600">
+            <Trash2 className="h-3 w-3 mr-1" /> Delete
+          </Button>
+        </form>
+      </div>
+      <div className="hidden sm:flex absolute right-1 top-1/2 -translate-y-1/2 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary rounded-md">
+        <GoalForm
+          goal={goal}
+          trigger={
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           }
@@ -288,12 +302,7 @@ function GoalRow({
             await deleteGoal(goal.id);
           }}
         >
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-red-500 hover:text-red-600"
-          >
+          <Button type="submit" variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </form>

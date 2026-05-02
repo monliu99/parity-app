@@ -64,7 +64,7 @@ export async function createAccount(formData: FormData) {
       },
     });
 
-    revalidatePath("/settings/accounts");
+    revalidatePath("/accounts");
     revalidatePath("/dashboard");
   } catch (error) {
     console.error("Error creating account:", error);
@@ -117,7 +117,7 @@ export async function updateAccount(id: string, formData: FormData) {
       },
     });
 
-    revalidatePath("/settings/accounts");
+    revalidatePath("/accounts");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
@@ -144,7 +144,7 @@ export async function deleteAccount(id: string) {
       where: { id, partnershipId: partnership.id },
     });
 
-    revalidatePath("/settings/accounts");
+    revalidatePath("/accounts");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
@@ -176,7 +176,7 @@ export async function updateAccountBalance(accountId: string, balance: number) {
       data: { balance },
     });
 
-    revalidatePath("/settings/accounts");
+    revalidatePath("/accounts");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
