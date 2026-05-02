@@ -91,6 +91,9 @@ Shows recent couple activity — both partners contributing:
 └──────────────────────────────┘
 ```
 
+### Responsive behavior
+The Net Worth / Spending two-column grid uses `grid-cols-1 sm:grid-cols-2`. On mobile, Net Worth renders above Spending in a single column. All other sections are already single-column.
+
 ## Color Palette Warmth Shift
 
 Shift backgrounds and borders slightly warmer (more beige/neutral, less sage tint). Keep primary moss green unchanged.
@@ -126,10 +129,11 @@ interface ActivityItem {
 ```
 
 Source queries:
-- Recent transactions (both users, last 10)
-- Recent goal updates (both users, last 5)
-- Recent life plan updates (last 1)
-- Recent monthly reviews (last 1)
+- Recent transactions (both users, last 10) — from `Transaction`
+- Recent goal contributions (both users, last 5) — from `GoalContribution` (model already exists in schema with `userId`, `amount`, `createdAt`)
+- Recent goals created (both users, last 5) — from `Goal.createdAt`
+- Recent life plan updates (last 1) — from `LifePlan.updatedAt`
+- Recent monthly reviews (last 1) — from `ReviewHistory.completedAt`
 
 Merge, sort by date, take top 5.
 
@@ -140,7 +144,9 @@ Already have `lastReviewDate` from monthly review system. Show nudge when `daysS
 Already have account data with `userId`. Shared = accounts where `userId === null`. Personal = everything else. Calculate percentages.
 
 ### Life Plan Progress
-Count roadmap items. Compare current month to roadmap to determine "current action". Count completed vs total. Progress = months elapsed / 12 (by position, not explicit completion state).
+Progress ring = `count(Goals where type = "action" AND completedAt IS NOT NULL) / count(Goals where type = "action")`. The "current month's action" is the lowest-numbered roadmap item without a corresponding completed Goal.
+
+**Dependency:** This requires the Goals page spec to land first — specifically, `Goal` needs a `type: "financial" | "action"` field and a `completedAt: DateTime?` field. Until then, the progress ring renders with a 0/N placeholder. The dashboard is otherwise independent of that schema change.
 
 ### Empty States
 - **No life plan yet**: Hero card shows a warm CTA — "Start your shared vision →" linking to `/life-planning`
@@ -175,3 +181,4 @@ Count roadmap items. Compare current month to roadmap to determine "current acti
 - Changing the life planning flow itself
 - Changing the monthly review flow
 - Adding new AI features beyond the synthesis adjustment
+- Goals page redesign (action goals UI, checkbox completion, unified financial + action goals view) — separate spec, must land before progress ring is fully functional
