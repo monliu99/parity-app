@@ -21,6 +21,8 @@ import {
   Shield,
   Sparkles,
   Calendar,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -28,6 +30,7 @@ const mainNavItems = [
   { href: "/life-planning", label: "Life Plan", icon: Sparkles },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/review", label: "Monthly Review", icon: Calendar },
+  { href: "/chat", label: "Ask Parity", icon: MessageCircle },
 ];
 
 interface MobileNavProps {
@@ -36,9 +39,10 @@ interface MobileNavProps {
     email?: string | null;
     image?: string | null;
   };
+  reviewDue?: boolean;
 }
 
-export function MobileNav({ user }: MobileNavProps) {
+export function MobileNav({ user, reviewDue }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -91,6 +95,9 @@ export function MobileNav({ user }: MobileNavProps) {
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 {label}
+                {href === "/review" && reviewDue && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                )}
               </Link>
             ))}
           </div>
@@ -122,12 +129,20 @@ export function MobileNav({ user }: MobileNavProps) {
                 </Link>
               )}
               <Link
-                href="/chat"
+                href="/accounts"
                 onClick={handleNavClick}
                 className="flex items-center gap-2.5 px-2 py-2 text-sm text-foreground hover:bg-secondary rounded-md transition-colors"
               >
-                <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                Ask Parity
+                <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                Accounts
+              </Link>
+              <Link
+                href="/transactions"
+                onClick={handleNavClick}
+                className="flex items-center gap-2.5 px-2 py-2 text-sm text-foreground hover:bg-secondary rounded-md transition-colors"
+              >
+                <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+                Transactions
               </Link>
               <Link
                 href="/settings"
@@ -135,7 +150,7 @@ export function MobileNav({ user }: MobileNavProps) {
                 className="flex items-center gap-2.5 px-2 py-2 text-sm text-foreground hover:bg-secondary rounded-md transition-colors"
               >
                 <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                Settings & Partnership
+                Settings
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}

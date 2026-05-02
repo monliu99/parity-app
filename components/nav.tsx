@@ -15,6 +15,8 @@ import {
   Shield,
   Sparkles,
   Calendar,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -22,6 +24,7 @@ const mainNavItems = [
   { href: "/life-planning", label: "Life Plan", icon: Sparkles },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/review", label: "Monthly Review", icon: Calendar },
+  { href: "/chat", label: "Ask Parity", icon: MessageCircle },
 ];
 
 interface NavProps {
@@ -30,9 +33,10 @@ interface NavProps {
     email?: string | null;
     image?: string | null;
   };
+  reviewDue?: boolean;
 }
 
-export default function Nav({ user }: NavProps) {
+export default function Nav({ user, reviewDue }: NavProps) {
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -56,7 +60,7 @@ export default function Nav({ user }: NavProps) {
         .slice(0, 2)
     : (user?.email?.[0]?.toUpperCase() ?? "?");
 
-  const navLink = (href: string, label: string, Icon: React.ElementType) => (
+  const navLink = (href: string, label: string, Icon: React.ElementType, badge?: boolean) => (
     <Link
       key={href}
       href={href}
@@ -69,37 +73,29 @@ export default function Nav({ user }: NavProps) {
     >
       <Icon className="h-4 w-4 shrink-0" />
       {label}
+      {badge && (
+        <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+      )}
     </Link>
   );
 
   return (
     <nav className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-6 border-b border-border flex items-center justify-between">
+      <div className="px-5 py-6 border-b border-border">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
           <span className="text-xl tracking-tight text-foreground font-heading italic">
             Parity
           </span>
         </div>
-        <Link
-          href="/chat"
-          title="Ask Parity"
-          aria-label="Ask Parity"
-          className={cn(
-            "p-1 rounded-md transition-colors",
-            pathname === "/chat"
-              ? "text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <MessageCircle className="h-4 w-4" />
-        </Link>
       </div>
 
       {/* Main nav */}
       <div className="flex-1 px-2 py-4 flex flex-col gap-0.5">
-        {mainNavItems.map(({ href, label, icon: Icon }) => navLink(href, label, Icon))}
+        {mainNavItems.map(({ href, label, icon: Icon }) =>
+          navLink(href, label, Icon, href === "/review" && reviewDue)
+        )}
       </div>
 
       {/* Profile section */}
@@ -126,12 +122,28 @@ export default function Nav({ user }: NavProps) {
                 </Link>
               )}
               <Link
+                href="/accounts"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full"
+              >
+                <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                Accounts
+              </Link>
+              <Link
+                href="/transactions"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full"
+              >
+                <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+                Transactions
+              </Link>
+              <Link
                 href="/settings"
                 onClick={() => setProfileOpen(false)}
                 className="flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full"
               >
                 <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                Settings & Partnership
+                Settings
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
