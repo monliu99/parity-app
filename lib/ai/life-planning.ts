@@ -86,59 +86,18 @@ function cacheSet(partnershipId: string, key: string, data: any): void {
   sessionCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
+const INITIAL_QUESTIONS: LifePlanQuestion[] = [
+  { question: "Where do you see yourselves living in 3-5 years?", followUps: [] },
+  { question: "What does your family look like in 3-5 years?", followUps: [] },
+  { question: "How does work fit into your lives in 3-5 years?", followUps: [] },
+  { question: "What experiences do you most want to have together in 3-5 years?", followUps: [] },
+  { question: "What would make you feel like you've really succeeded in 3-5 years?", followUps: [] },
+];
+
 export async function getInitialQuestions(
   partnershipId: string
 ): Promise<LifePlanQuestion[]> {
-  const cached = cacheGet(partnershipId, "initial-questions");
-  if (cached) return cached;
-
-  try {
-    const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      system: `You are Parity's life planning assistant for couples. Generate 5 conversational opening questions to understand their shared vision.
-
-CRITICAL CONTEXT: We are planning for a 3-5 year timeframe specifically. Not "someday" or "eventually" — but concretely 3-5 years from now.
-
-Rules:
-- Use "you" or "you both" — never "your partner" or "they"
-- Be warm, curious, open-ended — never interrogating
-- Ask about experiences and hopes, not just money
-- Keep questions under 15 words
-- EVERY question must explicitly mention "in 3-5 years" or "3-5 years from now"
-- Avoid: "budget", "save", "expensive", "someday", "eventually"
-- Use: "experience", "together", "future", "3-5 years"
-- Cover: living situation, family/kids, work, joy, success
-
-Example question format: "Where do you see yourselves living in 3-5 years?"
-
-Return ONLY valid JSON in this exact shape:
-{
-  "questions": [
-    { "question": "...", "followUps": [] }
-  ]
-}
-
-Generate exactly 5 distinct questions. Each question stands alone — no follow-ups needed.`,
-      messages: [
-        {
-          role: "user",
-          content: "Generate 5 opening questions for a couple planning their shared life together. Focus specifically on what their life looks like in 3-5 years.",
-        },
-      ],
-    });
-
-    let text = message.content[0].type === "text" ? message.content[0].text.trim() : "{}";
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-    const parsed = JSON.parse(text);
-    const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
-
-    cacheSet(partnershipId, "initial-questions", questions);
-    return questions;
-  } catch {
-    return [];
-  }
+  return INITIAL_QUESTIONS;
 }
 
 export async function processSharedVision(
