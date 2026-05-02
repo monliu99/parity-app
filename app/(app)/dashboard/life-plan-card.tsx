@@ -28,7 +28,13 @@ function ProgressRing({
   const pct = total > 0 ? completed / total : 0;
   return (
     <div className="flex items-center gap-2 shrink-0">
-      <svg width="36" height="36" className="-rotate-90">
+      <svg
+        width="36"
+        height="36"
+        className="-rotate-90"
+        role="img"
+        aria-label={`${completed} of ${total} roadmap actions completed`}
+      >
         <circle
           cx="18"
           cy="18"
@@ -48,10 +54,10 @@ function ProgressRing({
           className="text-primary"
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - pct)}
-          strokeLinecap={"round"}
+          strokeLinecap="round"
         />
       </svg>
-      <span className="text-xs text-muted-foreground tabular-nums">
+      <span className="text-xs text-muted-foreground tabular-nums" aria-hidden="true">
         {completed} of {total}
       </span>
     </div>
