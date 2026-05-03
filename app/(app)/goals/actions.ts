@@ -434,7 +434,7 @@ export async function createActionGoal(formData: FormData) {
       return { error: "Month must be between 1 and 12" };
     }
 
-    await db.goal.create({
+    await (db.goal.create as Function)({
       data: {
         partnershipId: partnership.id,
         userId: null,
@@ -476,7 +476,7 @@ export async function updateActionGoal(id: string, formData: FormData) {
     }
 
     await db.goal.updateMany({
-      where: { id, partnershipId: partnership.id },
+      where: { id, partnershipId: partnership.id, type: "action" },
       data: { name, month, notes },
     });
 
