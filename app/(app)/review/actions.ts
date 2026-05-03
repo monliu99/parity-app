@@ -2,8 +2,10 @@
 
 import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
-import { checkReviewSignal, generateReviewInsight, invalidateReviewCache } from "@/lib/ai/monthly-review";
+import { checkReviewSignal, generateReviewInsight, invalidateReviewCache, generateReviewSuggestions } from "@/lib/ai/monthly-review";
+import type { ReviewSuggestion } from "@/lib/ai/monthly-review";
 import { generatePlanInsights } from "@/lib/ai/life-planning";
+import type { PlanInsight } from "@/lib/ai/life-planning";
 import { getSpendingComparison, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
 
@@ -24,7 +26,7 @@ export async function checkReviewNeeded() {
 export async function startReview(month: string) {
   const { partnership } = await getPartnership();
 
-  const [goals, decisions, spending, topCategories] = await Promise.all([
+  const [goals, decisions, spending, topCategories, lifePlan] = await Promise.all([
     db.goal.findMany({ where: { partnershipId: partnership.id } }),
     db.decision.findMany({
       where: { partnershipId: partnership.id },
@@ -32,25 +34,53 @@ export async function startReview(month: string) {
       take: 10,
     }),
     getSpendingComparison(partnership.id, month),
-    getTopCategories(partnership.id, month),
+    getTopCategories(partnership.id, month, 8),
+    db.lifePlan.findFirst({
+      where: { partnershipId: partnership.id },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
-
-  const spendingSummary = {
-    thisMonth: spending.thisMonth,
-    lastMonth: spending.lastMonth,
-    baseline: spending.baseline,
-    topCategories,
-  };
 
   const insight = await generateReviewInsight(
     partnership.id,
     month,
     goals,
     decisions,
-    spendingSummary
+    { ...spending, topCategories }
   );
 
-  return { insight, month, spendingSummary };
+  let alignmentScore = 0;
+  let signals: PlanInsight[] = [];
+  if (lifePlan) {
+    const raw = lifePlan.priorities as
+      | { priorities: Array<{ rank: number; area: string; description: string }> }
+      | undefined;
+    const priorities = raw?.priorities ?? [];
+    if (priorities.length > 0) {
+      const thisMonthTotal = topCategories.reduce((sum, c) => sum + c.amount, 0);
+      const planInsights = await generatePlanInsights(
+        partnership.id,
+        priorities,
+        topCategories,
+        thisMonthTotal
+      );
+      alignmentScore = planInsights.alignmentScore;
+      signals = planInsights.signals;
+    }
+  }
+
+  const goalSummaries = goals.map((g) => ({
+    id: g.id,
+    name: g.name,
+    type: g.type,
+    targetAmount: g.targetAmount,
+    month: g.month ?? null,
+    completedAt: g.completedAt ?? null,
+  }));
+
+  const suggestions: ReviewSuggestion[] = await generateReviewSuggestions(signals, goalSummaries);
+
+  return { insight, month, alignmentScore, signals, suggestions, goals: goalSummaries };
 }
 
 export async function logDecision(data: {
@@ -142,6 +172,65 @@ export async function completeReview(data: {
 
   revalidatePath("/review");
   revalidatePath("/dashboard");
+  revalidatePath("/life-planning");
+  revalidatePath("/goals");
+  return { success: true };
+}
+
+export async function applyReviewSuggestions(suggestions: ReviewSuggestion[]) {
+  const { partnership } = await getPartnership();
+
+  const partnershipGoals = await db.goal.findMany({
+    where: { partnershipId: partnership.id },
+    select: { id: true },
+  });
+  const validIds = new Set(partnershipGoals.map((g) => g.id));
+
+  for (const suggestion of suggestions) {
+    try {
+      switch (suggestion.type) {
+        case "reschedule":
+          if (suggestion.targetId && validIds.has(suggestion.targetId) && typeof suggestion.newValue === "number") {
+            await db.goal.update({
+              where: { id: suggestion.targetId },
+              data: { month: suggestion.newValue },
+            });
+          }
+          break;
+        case "add_action":
+          await db.goal.create({
+            data: {
+              partnershipId: partnership.id,
+              name: suggestion.title,
+              type: "action",
+              targetAmount: 0,
+              notes: suggestion.explanation,
+            },
+          });
+          break;
+        case "adjust_goal":
+          if (suggestion.targetId && validIds.has(suggestion.targetId) && typeof suggestion.newValue === "number") {
+            await db.goal.update({
+              where: { id: suggestion.targetId },
+              data: { targetAmount: suggestion.newValue },
+            });
+          }
+          break;
+        case "mark_complete":
+          if (suggestion.targetId && validIds.has(suggestion.targetId)) {
+            await db.goal.update({
+              where: { id: suggestion.targetId },
+              data: { completedAt: new Date() },
+            });
+          }
+          break;
+      }
+    } catch {
+      // skip failed suggestions, don't block the whole apply
+    }
+  }
+
+  revalidatePath("/goals");
   revalidatePath("/life-planning");
   return { success: true };
 }

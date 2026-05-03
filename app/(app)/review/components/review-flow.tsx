@@ -2,20 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, CheckCircle2, RotateCcw } from "lucide-react";
-import { CelebrationCard } from "./celebration-card";
-import { SpendingSummary } from "./spending-summary";
-import { InsightDiscussion } from "./insight-discussion";
-import { DecisionLogger } from "./decision-logger";
-import { ScheduleNext } from "./schedule-next";
+import { CheckCircle2, RotateCcw } from "lucide-react";
+import { ReviewPage } from "./review-page";
+import type { PlanInsight } from "@/lib/ai/life-planning";
+import type { ReviewInsight } from "@/lib/ai/monthly-review";
+import type { ReviewSuggestion } from "@/lib/ai/monthly-review";
 
-type Step = "prompt" | "celebration" | "spending" | "insight" | "decisions" | "schedule" | "done";
+type Step = "prompt" | "review" | "done";
 
-interface SpendingData {
-  thisMonth: number;
-  lastMonth: number;
-  baseline: number;
-  topCategories: { category: string; amount: number }[];
+interface ReviewData {
+  month: string;
+  alignmentScore: number;
+  signals: PlanInsight[];
+  insight: ReviewInsight;
+  suggestions: ReviewSuggestion[];
 }
 
 interface ReviewFlowProps {
@@ -26,39 +26,48 @@ interface ReviewFlowProps {
   pastReviews: Array<{ month: string; completedAt: Date; insight?: string | null }>;
 }
 
-export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, pastReviews }: ReviewFlowProps) {
+export function ReviewFlow({
+  shouldReview,
+  reviewReason,
+  currentMonth,
+  pastReviews,
+}: ReviewFlowProps) {
   const [step, setStep] = useState<Step>(shouldReview ? "prompt" : "done");
   const [isPending, startTransition] = useTransition();
-  const [insight, setInsight] = useState<{ celebration: string; insight: string; frame: string } | null>(null);
-  const [spendingData, setSpendingData] = useState<SpendingData | null>(null);
-  const [decisionsCount, setDecisionsCount] = useState(0);
+  const [reviewData, setReviewData] = useState<ReviewData | null>(null);
 
   if (step === "prompt") {
     return (
       <div className="max-w-xl">
         <div className="bg-card border rounded-xl p-6 space-y-4">
           <p className="text-sm">{reviewReason}</p>
-
           <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
-            <p className="text-xs text-muted-foreground">Your monthly money date. 15 minutes, no fights, just alignment.</p>
+            <p className="text-xs text-muted-foreground">
+              Your monthly money date. 15 minutes, no fights, just alignment.
+            </p>
             <div className="flex gap-2 flex-wrap">
-              <span className="text-xs bg-background px-2 py-1 rounded">Celebrate wins</span>
-              <span className="text-xs bg-background px-2 py-1 rounded">One thing to discuss</span>
+              <span className="text-xs bg-background px-2 py-1 rounded">Alignment score</span>
+              <span className="text-xs bg-background px-2 py-1 rounded">Tensions vs on-track</span>
               <span className="text-xs bg-background px-2 py-1 rounded">Log decisions</span>
             </div>
           </div>
-
           <Button
             onClick={() => {
               startTransition(async () => {
                 const { startReview } = await import("../actions");
                 const result = await startReview(currentMonth);
-                setInsight(result.insight);
-                setSpendingData(result.spendingSummary ?? null);
-                setStep("celebration");
+                setReviewData({
+                  month: result.month,
+                  alignmentScore: result.alignmentScore,
+                  signals: result.signals,
+                  insight: result.insight,
+                  suggestions: result.suggestions,
+                });
+                setStep("review");
               });
             }}
             disabled={isPending}
+            className="w-full sm:w-auto"
           >
             {isPending ? "Loading..." : "Start Review"}
           </Button>
@@ -69,9 +78,17 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
             <p className="text-xs text-muted-foreground mb-2">Past reviews</p>
             <div className="space-y-2">
               {pastReviews.slice(0, 3).map((review) => (
-                <div key={review.month} className="flex items-center gap-2 text-sm bg-card border rounded-lg p-3">
+                <div
+                  key={review.month}
+                  className="flex items-center gap-2 text-sm bg-card border rounded-lg p-3"
+                >
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <span>{new Date(review.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+                  <span>
+                    {new Date(review.month).toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
                 </div>
               ))}
             </div>
@@ -81,69 +98,23 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
     );
   }
 
-  if (step === "celebration") {
+  if (step === "review" && reviewData) {
     return (
-      <CelebrationCard
-        celebration={insight?.celebration || "You're making progress together."}
-        onNext={() => setStep("spending")}
+      <ReviewPage
+        month={reviewData.month}
+        alignmentScore={reviewData.alignmentScore}
+        signals={reviewData.signals}
+        insight={reviewData.insight}
+        suggestions={reviewData.suggestions}
+        onComplete={() => setStep("done")}
       />
     );
   }
 
-  if (step === "spending") {
-    return (
-      <SpendingSummary
-        thisMonth={spendingData?.thisMonth ?? 0}
-        lastMonth={spendingData?.lastMonth ?? 0}
-        baseline={spendingData?.baseline ?? 0}
-        topCategories={spendingData?.topCategories ?? []}
-        onNext={() => setStep("insight")}
-      />
-    );
-  }
-
-  if (step === "insight") {
-    return (
-      <InsightDiscussion
-        insight={insight?.insight || ""}
-        frame={insight?.frame || ""}
-        onNext={() => setStep("decisions")}
-      />
-    );
-  }
-
-  if (step === "decisions") {
-    return (
-      <DecisionLogger
-        onDecisionLogged={() => setDecisionsCount((c) => c + 1)}
-        onNext={() => setStep("schedule")}
-      />
-    );
-  }
-
-  if (step === "schedule") {
-    return (
-      <ScheduleNext
-        decisionsCount={decisionsCount}
-        onComplete={() => {
-          startTransition(async () => {
-            const { completeReview } = await import("../actions");
-            await completeReview({
-              month: currentMonth,
-              insight: insight?.insight || "",
-              decisionsCount,
-            });
-            setStep("done");
-          });
-        }}
-        isLoading={isPending}
-      />
-    );
-  }
-
-  if (step === "done") {
-    return (
-      <div className="max-w-xl">
+  // done state (also shown when no review needed yet)
+  return (
+    <div className="max-w-xl">
+      {shouldReview ? (
         <div className="bg-card border rounded-xl p-8 text-center space-y-4">
           <p className="text-3xl">✨</p>
           <h2 className="text-xl font-semibold">You're all set!</h2>
@@ -157,6 +128,7 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
                 startTransition(async () => {
                   const { deleteCurrentMonthReview } = await import("../actions");
                   await deleteCurrentMonthReview(currentMonth);
+                  setReviewData(null);
                   setStep("prompt");
                 });
               }}
@@ -170,38 +142,35 @@ export function ReviewFlow({ shouldReview, reviewReason, urgency, currentMonth, 
             </Button>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Not ready for review yet
-  return (
-    <div className="max-w-xl">
-      <div className="bg-card border rounded-xl p-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <Calendar className="h-5 w-5 text-emerald-600 mt-0.5" />
-          <div className="flex-1 space-y-2">
-            <p className="text-sm">Everything looks on track.</p>
-            <p className="text-xs text-muted-foreground">
-              We'll notify you when it's time for your next check-in.
-            </p>
-          </div>
-        </div>
-
-        {pastReviews.length > 0 && (
-          <div className="pt-4 border-t">
-            <p className="text-xs text-muted-foreground mb-2">Past reviews</p>
-            <div className="space-y-2">
-              {pastReviews.slice(0, 3).map((review) => (
-                <div key={review.month} className="flex items-center gap-2 text-sm bg-secondary/50 rounded-lg p-3">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <span>{new Date(review.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
-                </div>
-              ))}
+      ) : (
+        <div className="bg-card border rounded-xl p-6 space-y-4">
+          <p className="text-sm">Everything looks on track.</p>
+          <p className="text-xs text-muted-foreground">
+            We'll notify you when it's time for your next check-in.
+          </p>
+          {pastReviews.length > 0 && (
+            <div className="pt-4 border-t">
+              <p className="text-xs text-muted-foreground mb-2">Past reviews</p>
+              <div className="space-y-2">
+                {pastReviews.slice(0, 3).map((review) => (
+                  <div
+                    key={review.month}
+                    className="flex items-center gap-2 text-sm bg-secondary/50 rounded-lg p-3"
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>
+                      {new Date(review.month).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

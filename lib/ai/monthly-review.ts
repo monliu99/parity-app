@@ -12,8 +12,16 @@ export interface ReviewSignal {
 export interface ReviewInsight {
   insight: string;
   frame: string;
-  celebration: string;
   relatedDecisions: string[];
+}
+
+export interface ReviewSuggestion {
+  id: string;
+  type: "reschedule" | "add_action" | "adjust_goal" | "mark_complete";
+  title: string;
+  explanation: string;
+  targetId?: string;
+  newValue?: string | number;
 }
 
 const signalCache = new Map<string, { signal: ReviewSignal; expiresAt: number }>();
@@ -122,7 +130,6 @@ Generate ONE insight for their monthly review.
 
 Rules:
 - Use "you" or "you both" — frame as a team, never individual blame
-- Start with a genuine celebration — be specific with real numbers ("you spent $200 less on dining" not "nice job")
 - ONE thing worth discussing — proactive, not passive
 - Honest but gentle — frame spending changes as shared observations, not judgments
 - Frame as a conversation starter between the two of them
@@ -130,7 +137,6 @@ Rules:
 
 Return ONLY valid JSON:
 {
-  "celebration": "<something positive to celebrate first>",
   "insight": "<the ONE thing worth discussing>",
   "frame": "<how to bring it up neutrally>"
 }`,
@@ -154,7 +160,6 @@ Generate their monthly review insight.`,
     const insight: ReviewInsight = {
       insight: parsed.insight || "",
       frame: parsed.frame || "",
-      celebration: parsed.celebration || "",
       relatedDecisions: relevantDecisions,
     };
 
@@ -164,9 +169,66 @@ Generate their monthly review insight.`,
     return {
       insight: "",
       frame: "",
-      celebration: "You're making progress together.",
       relatedDecisions: relevantDecisions,
     };
+  }
+}
+
+export async function generateReviewSuggestions(
+  signals: import("@/lib/ai/life-planning").PlanInsight[],
+  goals: Array<{ id: string; name: string; type: string; targetAmount: number; month: number | null; completedAt: Date | null }>
+): Promise<ReviewSuggestion[]> {
+  try {
+    const activeGoals = goals.filter((g) => !g.completedAt);
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 700,
+      system: `You are Parity's monthly review assistant. Based on spending signals and current goals/actions, suggest 2-4 specific adjustments the couple could make.
+
+Return ONLY valid JSON — an array of suggestion objects:
+[{
+  "id": "s1",
+  "type": "reschedule" | "add_action" | "adjust_goal" | "mark_complete",
+  "title": "short action title (under 8 words)",
+  "explanation": "one sentence why (under 15 words)",
+  "targetId": "<existing goal id if type is reschedule/adjust_goal/mark_complete, omit for add_action>",
+  "newValue": <new month number 1-12 for reschedule, new amount for adjust_goal, omit otherwise>
+}]
+
+Types:
+- reschedule: push an existing action to next month
+- add_action: create a new action goal
+- adjust_goal: change a goal's target amount
+- mark_complete: mark an existing action done
+
+Only reference goal IDs from the provided list. Use "you both" framing.`,
+      messages: [
+        {
+          role: "user",
+          content: `Signals from this month's review:
+${signals.map((s) => `- [${s.status}] ${s.title}: ${s.description}`).join("\n")}
+
+Current goals/actions:
+${activeGoals.length > 0
+  ? activeGoals.map((g) => `- id: "${g.id}", name: "${g.name}", type: "${g.type}", target: $${g.targetAmount}`).join("\n")
+  : "None"}
+
+Generate 2-4 suggested adjustments as JSON array.`,
+        },
+      ],
+    });
+
+    const text = message.content[0].type === "text" ? message.content[0].text.trim() : "[]";
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+    const parsed = JSON.parse(jsonMatch[0]) as ReviewSuggestion[];
+    const validIds = new Set(activeGoals.map((g) => g.id));
+    return parsed.filter((s) => {
+      if (s.type !== "add_action" && s.targetId && !validIds.has(s.targetId)) return false;
+      return true;
+    });
+  } catch {
+    return [];
   }
 }
 

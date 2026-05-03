@@ -22,7 +22,7 @@ import {
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/life-planning", label: "Life Plan", icon: Sparkles },
-  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/goals", label: "Actions & Goals", icon: Target },
   { href: "/review", label: "Monthly Review", icon: Calendar },
   { href: "/chat", label: "Ask Parity", icon: MessageCircle },
 ];
