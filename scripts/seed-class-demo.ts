@@ -172,11 +172,113 @@ async function main() {
     ],
   });
 
+  // Life plan
+  await (db.lifePlan.create as any)({
+    data: {
+      partnershipId: partnership.id,
+      visionStatement:
+        "You both picture yourselves settled in a walkable neighborhood with more space, building a family while doing meaningful work — and taking at least one big trip together every year.",
+      roadmap: [
+        { month: 1, title: "Set up a joint account for shared expenses", description: "Simplify splitting bills and tracking shared spending", category: "logistical" },
+        { month: 2, title: "Align on a monthly savings target", description: "Decide how much to set aside together each month", category: "financial" },
+        { month: 3, title: "Book Europe trip together", description: "Plan the itinerary and lock in flights before prices go up", category: "experience" },
+        { month: 4, title: "Review and cut unused subscriptions", description: "Audit recurring charges and cancel what you don't use", category: "logistical" },
+        { month: 6, title: "Research neighborhoods for your potential move", description: "Start exploring areas that fit your lifestyle goals", category: "logistical" },
+        { month: 9, title: "Start a home buying readiness checklist", description: "Credit scores, pre-qualification, and what you'll need", category: "logistical" },
+        { month: 12, title: "Annual money date", description: "Review the year together and set intentions for the next one", category: "logistical" },
+      ],
+      priorities: [
+        { rank: 1, area: "Housing", description: "Finding a place that feels like home together" },
+        { rank: 2, area: "Emergency Fund", description: "Building a safety net before big purchases" },
+        { rank: 3, area: "Travel", description: "Staying connected through shared experiences" },
+        { rank: 4, area: "Down Payment", description: "Long-term path to owning a home together" },
+      ],
+    },
+  });
+
+  // Action goals (non-financial roadmap items, 1 pre-completed for demo)
+  await (db.goal.createMany as any)({
+    data: [
+      {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name: "Set up a joint account for shared expenses",
+        type: "action",
+        targetAmount: 0,
+        month: 1,
+        category: "logistical",
+        notes: "Simplify splitting bills and tracking shared spending",
+        completedAt: new Date("2026-02-15"),
+      },
+      {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name: "Book Europe trip together",
+        type: "action",
+        targetAmount: 0,
+        month: 3,
+        category: "experience",
+        notes: "Plan the itinerary and lock in flights before prices go up",
+        completedAt: null,
+      },
+      {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name: "Review and cut unused subscriptions",
+        type: "action",
+        targetAmount: 0,
+        month: 4,
+        category: "logistical",
+        notes: "Audit recurring charges and cancel what you don't use",
+        completedAt: null,
+      },
+      {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name: "Research neighborhoods for your potential move",
+        type: "action",
+        targetAmount: 0,
+        month: 6,
+        category: "logistical",
+        notes: "Start exploring areas that fit your lifestyle goals",
+        completedAt: null,
+      },
+      {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name: "Start a home buying readiness checklist",
+        type: "action",
+        targetAmount: 0,
+        month: 9,
+        category: "logistical",
+        notes: "Credit scores, pre-qualification, and what you'll need",
+        completedAt: null,
+      },
+      {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name: "Annual money date",
+        type: "action",
+        targetAmount: 0,
+        month: 12,
+        category: "logistical",
+        notes: "Review the year together and set intentions for the next one",
+        completedAt: null,
+      },
+    ],
+  });
+
   console.log("✅ Class demo account created!\n");
   console.log("  Login:      greenie@parity.app   /  password  (Greenie)");
   console.log("  Partner:    goldie@parity.app /  password  (Goldie)");
   console.log("  Invite code: CLASS2026\n");
-  console.log(`  Accounts: ${accounts.length} | Transactions: ${txData.length} | Goals: 3`);
+  console.log(`  Accounts: ${accounts.length} | Transactions: ${txData.length} | Goals: 3 financial + 6 actions | Life plan: seeded`);
 }
 
 main()
