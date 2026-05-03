@@ -396,3 +396,94 @@ export async function addGoalContribution(goalId: string, amount: number, accoun
     };
   }
 }
+
+export async function toggleActionGoal(id: string) {
+  try {
+    const { partnership } = await getPartnership();
+
+    const goal = await db.goal.findFirst({
+      where: { id, partnershipId: partnership.id, type: "action" },
+    });
+    if (!goal) return { error: "Goal not found" };
+
+    await db.goal.updateMany({
+      where: { id, partnershipId: partnership.id },
+      data: { completedAt: goal.completedAt ? null : new Date() },
+    });
+
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to update goal" };
+  }
+}
+
+export async function createActionGoal(formData: FormData) {
+  try {
+    const { partnership } = await getPartnership();
+
+    const name = formData.get("name") as string;
+    const monthStr = formData.get("month") as string;
+    const notes = (formData.get("notes") as string) || null;
+
+    if (!name?.trim()) return { error: "Action name is required" };
+
+    const month = monthStr ? parseInt(monthStr, 10) : null;
+    if (month !== null && (isNaN(month) || month < 1 || month > 12)) {
+      return { error: "Month must be between 1 and 12" };
+    }
+
+    await db.goal.create({
+      data: {
+        partnershipId: partnership.id,
+        userId: null,
+        ownerLabel: "JOINT",
+        name,
+        type: "action",
+        targetAmount: 0,
+        month,
+        notes,
+      },
+    });
+
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to create action" };
+  }
+}
+
+export async function updateActionGoal(id: string, formData: FormData) {
+  try {
+    const { partnership } = await getPartnership();
+
+    const existing = await db.goal.findFirst({
+      where: { id, partnershipId: partnership.id, type: "action" },
+    });
+    if (!existing) return { error: "Goal not found" };
+
+    const name = formData.get("name") as string;
+    const monthStr = formData.get("month") as string;
+    const notes = (formData.get("notes") as string) || null;
+
+    if (!name?.trim()) return { error: "Action name is required" };
+
+    const month = monthStr ? parseInt(monthStr, 10) : null;
+    if (month !== null && (isNaN(month) || month < 1 || month > 12)) {
+      return { error: "Month must be between 1 and 12" };
+    }
+
+    await db.goal.updateMany({
+      where: { id, partnershipId: partnership.id },
+      data: { name, month, notes },
+    });
+
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to update action" };
+  }
+}
