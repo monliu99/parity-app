@@ -7,6 +7,7 @@ import { getCurrentOnboardingStep } from "@/lib/onboarding";
 import { Card, CardContent } from "@/components/ui/card";
 import { LifePlanHero } from "./life-plan-card";
 import { ActivityFeed, type ActivityItem } from "./activity-feed";
+import { NextStepsCard } from "./next-steps-card";
 import { OnboardingFlow } from "@/app/(app)/onboarding/onboarding-flow";
 import Link from "next/link";
 
@@ -19,13 +20,6 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function monthsSince(date: Date): number {
-  const now = new Date();
-  return (
-    (now.getFullYear() - date.getFullYear()) * 12 +
-    (now.getMonth() - date.getMonth())
-  );
-}
 
 export default async function DashboardPage() {
   const { partnership, userId } = await getPartnership();
@@ -45,6 +39,10 @@ export default async function DashboardPage() {
     recentContributions,
     recentGoalsCreated,
     lastReview,
+    actionGoalsCompleted,
+    actionGoalsTotal,
+    currentActionGoal,
+    nextStepsGoals,
   ] = await Promise.all([
     db.account.findMany({
       where: { partnershipId: partnership.id },
@@ -90,6 +88,21 @@ export default async function DashboardPage() {
       orderBy: { completedAt: "desc" },
       select: { completedAt: true, month: true },
     }),
+    db.goal.count({
+      where: { partnershipId: partnership.id, type: "action", completedAt: { not: null } },
+    }),
+    db.goal.count({
+      where: { partnershipId: partnership.id, type: "action" },
+    }),
+    db.goal.findFirst({
+      where: { partnershipId: partnership.id, type: "action", completedAt: null },
+      orderBy: [{ month: { sort: "asc", nulls: "last" } }],
+    }),
+    db.goal.findMany({
+      where: { partnershipId: partnership.id, type: "action", completedAt: null },
+      orderBy: [{ month: { sort: "asc", nulls: "last" } }],
+      take: 3,
+    }),
   ]);
 
   // Names
@@ -126,17 +139,16 @@ export default async function DashboardPage() {
     members.length
   );
 
-  // Life plan: current action + AI insight
-  const roadmapArray = Array.isArray(lifePlan?.roadmap)
-    ? (lifePlan.roadmap as Array<{ month: number; title: string; description: string }>)
-    : [];
-  const currentMonthIndex = lifePlan
-    ? Math.min(Math.max(0, monthsSince(lifePlan.createdAt)), 11)
-    : 0;
-  const currentAction =
-    roadmapArray.find((item) => item.month === currentMonthIndex + 1) ?? null;
-  const progressTotal = roadmapArray.length || 12;
-  const progressCompleted = 0; // placeholder until Goals spec lands
+  // Life plan: current action and progress from Goal table (real data)
+  const progressCompleted = actionGoalsCompleted;
+  const progressTotal = actionGoalsTotal;
+  const currentAction = currentActionGoal
+    ? {
+        month: currentActionGoal.month ?? 0,
+        title: currentActionGoal.name,
+        description: currentActionGoal.notes ?? "",
+      }
+    : null;
 
   const insight =
     lifePlan?.visionStatement
@@ -375,6 +387,9 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Next Steps */}
+          <NextStepsCard goals={nextStepsGoals} />
 
           {/* Activity Feed */}
           <ActivityFeed items={activityItems} />
