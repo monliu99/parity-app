@@ -27,7 +27,7 @@ model LifePlanSnapshot {
   alignmentScore Int?         // 0-100 spending alignment
   signals     Json            // Array of insight objects
   priorities  Json?           // Priorities at time of snapshot
-  visionHash  String?         // Hash to detect vision changes
+
   createdAt   DateTime @default(now())
 
   lifePlan    LifePlan @relation(fields: [lifePlanId], references: [id], onDelete: Cascade)
