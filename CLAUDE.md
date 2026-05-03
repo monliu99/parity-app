@@ -53,8 +53,8 @@ User, Partnership, Membership (max 2), Account, Transaction, Budget, Goal
 - `/budget` — AI-generated budget suggestions per category with user overrides
 - `/chat` — AI Q&A ("Ask Parity")
 - `/settings` — Partnership management
-- `/life-planning` — Conversational life planning flow (vision → priorities → roadmap)
-- `/review` — Monthly review with spending summary step
+- `/life-planning` — Tabbed page (Vision / Priorities / Insights) for returning users; wizard flow for first-timers. Vision editable inline, priorities reorderable, Insights tab shows spending alignment score + signals from last review.
+- `/review` — Monthly review: alignment score, tension/on-track signals, decision logging, AI goal adjustment suggestions
 - `/onboarding` — 3-step wizard (account → transaction → goal)
 
 ### Dashboard components
@@ -67,8 +67,8 @@ All use Anthropic SDK directly (no streaming), currently `claude-haiku-4-5-20251
 - `lib/ai/categorize.ts` — Transaction categorization (11 categories)
 - `lib/ai/insights.ts` — Dashboard synthesis (narrative) + spending insights (structured)
 - `lib/ai/chat.ts` — Q&A with full transaction context (60-day window)
-- `lib/ai/life-planning.ts` — Vision, reality check, priorities, roadmap generation
-- `lib/ai/monthly-review.ts` — Review signal detection + insight generation
+- `lib/ai/life-planning.ts` — Vision, reality check, priorities, roadmap generation; `generateRealityCheckCards()`, `generatePlanInsights()`
+- `lib/ai/monthly-review.ts` — Review signal detection, insight + suggestion generation
 - `lib/ai/goal-inference.ts` — Auto-generate goals from life plan roadmap
 
 ### Design system
@@ -86,13 +86,13 @@ All use Anthropic SDK directly (no streaming), currently `claude-haiku-4-5-20251
 
 ## Current State
 
-**MVP 2.0 (on `alignment` branch, merging to `main`):** Shifted from budget-centric to transaction-centric. Budget is now AI-generated suggestions (not manual fixed/variable). Dashboard shows spending trends, cash flow, and budget tracking. Transaction model replaced BudgetFixed/BudgetVariable.
+**All features shipped on `main`.** Transaction-centric model. Budget is AI-generated suggestions (not manual). Life plan connects vision to trackable goals. Monthly review closes the loop with alignment scoring.
 
 **Core features:**
 1. **Dashboard** — Net worth, spending trends (MoM chart), budget status, goals, AI synthesis
 2. **Accounts + Transactions** — Full CRUD with colored categories, AI auto-categorization
 3. **Budget** — AI-generated per-category suggestions with user overrides
-4. **Life Planning** — Conversational flow generating shared vision, priorities, roadmap
-5. **Goals** — Auto-generated from roadmap + manual creation
-6. **Monthly Review** — Guided check-in with spending summary step
+4. **Life Planning** — Tabbed page: Vision (editable + reality check cards), Priorities (reorderable), Insights (alignment score + signals). First-timers see the wizard; returning users see the tabbed view with a "Re-run wizard" escape hatch. Completing a monthly review writes a `LifePlanSnapshot` that populates the Insights tab.
+5. **Goals** — Two sections: Roadmap Actions (from life plan) + Financial Goals. Auto-generated or manual.
+6. **Monthly Review** — Alignment score, tension/on-track signals, decision logging, AI-suggested goal adjustments.
 7. **Chat** — Context-aware AI Q&A

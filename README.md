@@ -12,7 +12,7 @@ A shared financial operating system for couples. Parity gives partners a unified
 - **Styling:** Tailwind CSS 4 + shadcn/ui (base-ui v4)
 - **Database:** Prisma 7 + Neon (PostgreSQL)
 - **Auth:** NextAuth v5 (JWT, credentials provider)
-- **AI:** Anthropic SDK (Claude Haiku) — categorization, insights, chat, budget
+- **AI:** Anthropic SDK (Claude Haiku) — categorization, insights, chat, budget, life planning, monthly review
 - **Deployment:** Vercel
 
 ---
@@ -72,10 +72,12 @@ app/
     accounts/      # account management
     transactions/  # transaction list + AI categorization
     budget/        # AI-generated monthly budgets
-    goals/         # savings goals
+    goals/         # roadmap actions + financial goals
     chat/          # AI chat with full financial context
+    life-planning/ # tabbed page (Vision/Priorities/Insights) + wizard for first-timers
+    review/        # monthly review — alignment score, signals, suggestions
     settings/      # partnership settings + invite code
-    onboarding/    # 4-step wizard (account → txn → goal → invite partner)
+    onboarding/    # 3-step wizard (account → txn → goal)
   admin/
     feedback/      # feedback review (gated to mo@parity.app)
   api/auth/        # NextAuth handler
@@ -85,10 +87,13 @@ lib/
   partnership.ts   # getPartnership() — used by all protected pages
   onboarding.ts    # onboarding step logic
   ai/
-    categorize.ts  # transaction categorization
-    insights.ts    # dashboard synthesis (1h cache)
-    chat.ts        # stateless chat with full context
-    budget.ts      # budget suggestions + next-month plan
+    categorize.ts      # transaction categorization
+    insights.ts        # dashboard synthesis (1h cache)
+    chat.ts            # stateless chat with full context
+    budget.ts          # budget suggestions + next-month plan
+    life-planning.ts   # vision, priorities, roadmap, plan insights
+    monthly-review.ts  # review signals, insights, suggestions
+    goal-inference.ts  # auto-generate goals from roadmap
 
 components/
   nav.tsx          # desktop sidebar
@@ -127,8 +132,12 @@ Partnership   id, inviteCode (6-char uppercase)
 Membership    userId + partnershipId (composite PK; max 2 per partnership)
 Account       id, partnershipId, userId, name, type, balance, institution
 Transaction   id, partnershipId, accountId, userId, ownerLabel, merchant, amount, category, date
-Goal          id, partnershipId, userId, ownerLabel, name, targetAmount, currentAmount, targetDate
+Goal          id, partnershipId, userId, name, type (financial|action), targetAmount, currentAmount, month, completedAt, category
 Budget        id, partnershipId, month (YYYY-MM), category, suggestedAmount, userAmount
+LifePlan      id, partnershipId, vision, priorities (JSON), roadmap (JSON), lastReviewedAt
+LifePlanSnapshot  id, lifePlanId, month, alignmentScore, signals (JSON), priorities (JSON)
+ReviewHistory id, partnershipId, month, insight, decisionsCreated, completedAt
+Decision      id, partnershipId, title, context, outcome, category
 Feedback      id, userId, partnershipId, rating (1-3), comment, page, createdAt
 ```
 
