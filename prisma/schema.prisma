@@ -59,8 +59,8 @@ model Account {
 model Goal {
   id            String              @id @default(cuid())
   partnershipId String
-  userId        String?
-  ownerLabel    String              @default("JOINT")
+  userId        String?             // null = joint goal, set = personal goal owner
+  ownerLabel    String              @default("JOINT") // "JOINT" | "PERSONAL"
   name          String
   type          String              @default("financial")
   targetAmount  Float
