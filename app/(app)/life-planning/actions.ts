@@ -189,6 +189,35 @@ export async function generateFinalRoadmap(
   return { roadmap };
 }
 
+async function syncRoadmapActions(
+  partnershipId: string,
+  roadmap: Array<{ month: number; title: string; description: string; category: string }>
+): Promise<void> {
+  const existingActions = await db.goal.findMany({
+    where: { partnershipId, type: "action" },
+    select: { name: true },
+  });
+  const existingNames = new Set(existingActions.map((g) => g.name));
+
+  const toCreate = roadmap
+    .filter((item) => item.category !== "financial" && !existingNames.has(item.title))
+    .map((item) => ({
+      partnershipId,
+      userId: null as string | null,
+      ownerLabel: "JOINT",
+      name: item.title,
+      type: "action",
+      targetAmount: 0,
+      month: item.month,
+      category: item.category,
+      notes: item.description || null,
+    }));
+
+  if (toCreate.length > 0) {
+    await (db.goal.createMany as any)({ data: toCreate });
+  }
+}
+
 export async function saveLifePlan(data: {
   visionStatement: string;
   roadmap: unknown;
@@ -204,6 +233,11 @@ export async function saveLifePlan(data: {
       priorities: data.priorities,
     },
   });
+
+  const roadmapItems = Array.isArray(data.roadmap)
+    ? (data.roadmap as Array<{ month: number; title: string; description: string; category: string }>)
+    : [];
+  await syncRoadmapActions(partnership.id, roadmapItems);
 
   invalidateLifePlanCache(partnership.id);
 
