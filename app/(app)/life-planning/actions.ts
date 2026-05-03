@@ -9,7 +9,10 @@ import {
   prioritizeValues,
   generateRoadmap,
   invalidateLifePlanCache,
+  generateRealityCheckCards,
+  generatePlanInsights,
 } from "@/lib/ai/life-planning";
+import type { RealityCheckCard } from "@/lib/ai/life-planning";
 import { getRollingBaseline, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
 
@@ -193,14 +196,12 @@ async function syncRoadmapActions(
   partnershipId: string,
   roadmap: Array<{ month: number; title: string; description: string; category: string }>
 ): Promise<void> {
-  const existingActions = await db.goal.findMany({
+  await db.goal.deleteMany({
     where: { partnershipId, type: "action" },
-    select: { name: true },
   });
-  const existingNames = new Set(existingActions.map((g) => g.name));
 
   const toCreate = roadmap
-    .filter((item) => item.category !== "financial" && !existingNames.has(item.title))
+    .filter((item) => item.category !== "financial")
     .map((item) => ({
       partnershipId,
       userId: null as string | null,
@@ -222,20 +223,58 @@ export async function saveLifePlan(data: {
   visionStatement: string;
   roadmap: unknown;
   priorities: unknown;
+  visionAnswers?: Record<string, string>;
+  lifePlanId?: string;
 }) {
   const { partnership } = await getPartnership();
 
-  await (db.lifePlan.create as any)({
-    data: {
-      partnershipId: partnership.id,
-      visionStatement: data.visionStatement,
-      roadmap: data.roadmap,
-      priorities: data.priorities,
-    },
-  });
+  const [accounts, goals, baseline] = await Promise.all([
+    db.account.findMany({ where: { partnershipId: partnership.id } }),
+    db.goal.findMany({ where: { partnershipId: partnership.id } }),
+    getRollingBaseline(partnership.id),
+  ]);
+
+  const realityCheckCards: RealityCheckCard[] = data.visionAnswers
+    ? await generateRealityCheckCards(
+        partnership.id,
+        accounts,
+        goals,
+        data.visionStatement,
+        baseline?.average ?? null
+      )
+    : [];
+
+  if (data.lifePlanId) {
+    await db.lifePlan.update({
+      where: { id: data.lifePlanId },
+      data: {
+        visionStatement: data.visionStatement,
+        roadmap: data.roadmap as any,
+        priorities: data.priorities as any,
+        ...(data.visionAnswers && { visionAnswers: data.visionAnswers as any }),
+        realityCheck: realityCheckCards as any,
+      },
+    });
+  } else {
+    await (db.lifePlan.create as any)({
+      data: {
+        partnershipId: partnership.id,
+        visionStatement: data.visionStatement,
+        roadmap: data.roadmap,
+        priorities: data.priorities,
+        visionAnswers: data.visionAnswers ?? null,
+        realityCheck: realityCheckCards,
+      },
+    });
+  }
 
   const roadmapItems = Array.isArray(data.roadmap)
-    ? (data.roadmap as Array<{ month: number; title: string; description: string; category: string }>)
+    ? (data.roadmap as Array<{
+        month: number;
+        title: string;
+        description: string;
+        category: string;
+      }>)
     : [];
   await syncRoadmapActions(partnership.id, roadmapItems);
 
@@ -246,6 +285,83 @@ export async function saveLifePlan(data: {
   revalidatePath("/dashboard");
 
   return { success: true };
+}
+
+export async function updateVisionStatement(visionStatement: string) {
+  const { partnership } = await getPartnership();
+
+  const lifePlan = await db.lifePlan.findFirst({
+    where: { partnershipId: partnership.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!lifePlan) return { success: false };
+
+  const [accounts, goals, baseline] = await Promise.all([
+    db.account.findMany({ where: { partnershipId: partnership.id } }),
+    db.goal.findMany({ where: { partnershipId: partnership.id } }),
+    getRollingBaseline(partnership.id),
+  ]);
+
+  const realityCheckCards = await generateRealityCheckCards(
+    partnership.id,
+    accounts,
+    goals,
+    visionStatement,
+    baseline?.average ?? null
+  );
+
+  await db.lifePlan.update({
+    where: { id: lifePlan.id },
+    data: { visionStatement, realityCheck: realityCheckCards as any },
+  });
+
+  revalidatePath("/life-planning");
+  return { success: true };
+}
+
+export async function reorderPriorities(
+  priorities: Array<{ rank: number; area: string; description: string }>
+) {
+  const { partnership } = await getPartnership();
+
+  const lifePlan = await db.lifePlan.findFirst({
+    where: { partnershipId: partnership.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!lifePlan) return { success: false };
+
+  const existing = lifePlan.priorities as
+    | { priorities: any[]; conflicts?: any[] }
+    | undefined;
+  const conflicts = existing?.conflicts ?? [];
+
+  await db.lifePlan.update({
+    where: { id: lifePlan.id },
+    data: { priorities: { priorities, conflicts } as any },
+  });
+
+  revalidatePath("/life-planning");
+  return { success: true };
+}
+
+export async function getLatestSnapshot() {
+  const { partnership } = await getPartnership();
+
+  const lifePlan = await db.lifePlan.findFirst({
+    where: { partnershipId: partnership.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!lifePlan) return { snapshot: null };
+
+  const snapshot = await (db.lifePlanSnapshot as any).findFirst({
+    where: { lifePlanId: lifePlan.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { snapshot: snapshot ?? null };
 }
 
 export async function getExistingLifePlan() {

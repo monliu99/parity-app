@@ -16,17 +16,22 @@ import { RealityCheckStep } from "./reality-check";
 import { PriorityRanking } from "./priority-ranking";
 import { RoadmapPreview } from "./roadmap-preview";
 import { ReviewEditPlan } from "./review-edit-plan";
-import { SavedLifePlan } from "./saved-life-plan";
 import { Button } from "@/components/ui/button";
 
-type Step = "intro" | "questions" | "vision" | "reality" | "priorities" | "roadmap" | "review" | "saved" | "complete";
+type Step = "intro" | "questions" | "vision" | "reality" | "priorities" | "roadmap" | "review" | "complete";
 
 interface LifePlanningFlowProps {
   existingLifePlan: LifePlan | null;
+  forceIntro?: boolean;
+  onComplete?: () => void;
 }
 
-export function LifePlanningFlow({ existingLifePlan }: LifePlanningFlowProps) {
-  const [step, setStep] = useState<Step>(existingLifePlan ? "saved" : "intro");
+export function LifePlanningFlow({
+  existingLifePlan,
+  forceIntro,
+  onComplete,
+}: LifePlanningFlowProps) {
+  const [step, setStep] = useState<Step>("intro");
   const [isPending, startTransition] = useTransition();
 
   // State for each step
@@ -162,9 +167,10 @@ export function LifePlanningFlow({ existingLifePlan }: LifePlanningFlowProps) {
         priorities={priorities}
         conflicts={conflicts}
         onBack={() => setStep("reality")}
-        onNext={() => {
+        onNext={(reordered) => {
+          setPriorities(reordered);
           startTransition(async () => {
-            const result = await generateFinalRoadmap(visionStatement, priorities);
+            const result = await generateFinalRoadmap(visionStatement, reordered);
             setRoadmap(result.roadmap);
             setStep("roadmap");
           });
@@ -198,21 +204,17 @@ export function LifePlanningFlow({ existingLifePlan }: LifePlanningFlowProps) {
               visionStatement: editedData.vision,
               roadmap: editedData.roadmap,
               priorities: { priorities: editedData.priorities, conflicts },
+              visionAnswers: answers,
+              lifePlanId: existingLifePlan?.id,
             });
-            // After saving, go to saved view so they can see their plan
-            window.location.href = "/life-planning";
+            if (onComplete) {
+              onComplete();
+            } else {
+              window.location.href = "/life-planning";
+            }
           });
         }}
         isLoading={isPending}
-      />
-    );
-  }
-
-  if (step === "saved" && existingLifePlan) {
-    return (
-      <SavedLifePlan
-        lifePlan={existingLifePlan}
-        onStartOver={() => setStep("intro")}
       />
     );
   }

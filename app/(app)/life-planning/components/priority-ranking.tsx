@@ -21,7 +21,7 @@ interface PriorityRankingProps {
   priorities: Priority[];
   conflicts: Conflict[];
   onBack: () => void;
-  onNext: () => void;
+  onNext: (reordered: Priority[]) => void;
   isLoading: boolean;
 }
 
@@ -126,7 +126,7 @@ export function PriorityRanking({ priorities, conflicts, onBack, onNext, isLoadi
             Back
           </Button>
 
-          <Button onClick={onNext} disabled={isLoading} size="sm" className="gap-1">
+          <Button onClick={() => onNext(rankedPriorities)} disabled={isLoading} size="sm" className="gap-1">
             {isLoading ? "Generating plan..." : "See my roadmap"}
             <ChevronRight className="h-4 w-4" />
           </Button>

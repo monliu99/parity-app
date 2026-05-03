@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { checkReviewSignal, generateReviewInsight, invalidateReviewCache } from "@/lib/ai/monthly-review";
+import { generatePlanInsights } from "@/lib/ai/life-planning";
 import { getSpendingComparison, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
 
@@ -92,10 +93,56 @@ export async function completeReview(data: {
     },
   });
 
+  // Generate life plan insights if a life plan exists
+  const lifePlan = await db.lifePlan.findFirst({
+    where: { partnershipId: partnership.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (lifePlan) {
+    const raw = lifePlan.priorities as
+      | { priorities: Array<{ rank: number; area: string; description: string }> }
+      | undefined;
+    const priorities = raw?.priorities ?? [];
+
+    if (priorities.length > 0) {
+      const topCategories = await getTopCategories(partnership.id, data.month);
+      const thisMonthTotal = topCategories.reduce((sum, c) => sum + c.amount, 0);
+
+      const insights = await generatePlanInsights(
+        partnership.id,
+        priorities,
+        topCategories,
+        thisMonthTotal
+      );
+
+      await (db.lifePlanSnapshot as any).upsert({
+        where: { lifePlanId_month: { lifePlanId: lifePlan.id, month: data.month } },
+        create: {
+          lifePlanId: lifePlan.id,
+          month: data.month,
+          alignmentScore: insights.alignmentScore,
+          signals: insights.signals,
+          priorities,
+        },
+        update: {
+          alignmentScore: insights.alignmentScore,
+          signals: insights.signals,
+        },
+      });
+
+      await db.lifePlan.update({
+        where: { id: lifePlan.id },
+        data: { lastReviewedAt: new Date() },
+      });
+    }
+  }
+
   invalidateReviewCache(partnership.id);
 
   revalidatePath("/review");
   revalidatePath("/dashboard");
+  revalidatePath("/life-planning");
   return { success: true };
 }
 

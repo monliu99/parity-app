@@ -142,17 +142,36 @@ model Feedback {
 
 // Life Planning - stores shared vision from conversational flow
 model LifePlan {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   partnershipId   String
-  visionStatement String   // The shared vision statement (1-2 sentences)
-  roadmap         Json     // AI-generated 12-month action roadmap
-  priorities      Json     // Ranked priorities from value conflict exercise
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  visionStatement String
+  roadmap         Json
+  priorities      Json
+  lastReviewedAt  DateTime?
+  visionAnswers   Json?
+  realityCheck    Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  partnership     Partnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  partnership     Partnership        @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  snapshots       LifePlanSnapshot[]
 
   @@index([partnershipId])
+}
+
+model LifePlanSnapshot {
+  id             String   @id @default(cuid())
+  lifePlanId     String
+  month          String
+  alignmentScore Int?
+  signals        Json
+  priorities     Json?
+  createdAt      DateTime @default(now())
+
+  lifePlan       LifePlan @relation(fields: [lifePlanId], references: [id], onDelete: Cascade)
+
+  @@unique([lifePlanId, month])
+  @@index([lifePlanId])
 }
 
 // Decisions logged from Monthly Review

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { formatMonth } from "@/lib/format-month";
 
 interface RoadmapItem {
   month: number;
@@ -79,9 +80,9 @@ export function RoadmapPreview({ roadmap, onBack, onNext, isLoading }: RoadmapPr
         </div>
 
         <div className="space-y-6">
-          <RoadmapSection title="IMMEDIATE (this month)" items={immediate} />
-          <RoadmapSection title="SHORT-TERM (3-6 months)" items={shortTerm} />
-          <RoadmapSection title="MID-TERM (6-12 months)" items={midTerm} />
+          <RoadmapSection title={`IMMEDIATE (${formatMonth(1)})`} items={immediate} />
+          <RoadmapSection title={`SHORT-TERM (${formatMonth(3)} – ${formatMonth(6)})`} items={shortTerm} />
+          <RoadmapSection title={`MID-TERM (${formatMonth(7)} – ${formatMonth(12)})`} items={midTerm} />
         </div>
 
         <div className="flex items-center justify-between pt-2">

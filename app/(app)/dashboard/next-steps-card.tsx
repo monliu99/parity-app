@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckSquare } from "lucide-react";
+import { formatMonth } from "@/lib/format-month";
 
 interface NextStepsGoal {
   id: string;
@@ -54,10 +55,10 @@ export function NextStepsCard({ goals }: { goals: NextStepsGoal[] }) {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {i === 0 ? (
                     <span className="font-medium text-primary">
-                      This month{goal.month ? ` · Month ${goal.month}` : ""}
+                      {goal.month ? formatMonth(goal.month) : "This month"}
                     </span>
                   ) : goal.month ? (
-                    `Month ${goal.month}`
+                    formatMonth(goal.month)
                   ) : null}
                 </p>
               </div>

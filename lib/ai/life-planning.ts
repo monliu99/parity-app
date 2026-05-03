@@ -42,6 +42,24 @@ export interface ValueConflict {
   suggestedFrame: string;
 }
 
+export interface RealityCheckCard {
+  title: string;
+  detail: string;
+  status: "on-track" | "watch";
+}
+
+export interface PlanInsight {
+  title: string;
+  description: string;
+  status: "aligned" | "tension" | "neutral";
+  priority: string;
+}
+
+export interface PlanInsightsResult {
+  alignmentScore: number;
+  signals: PlanInsight[];
+}
+
 export interface FinancialContext {
   combinedIncome: number;
   combinedSavings: number;
@@ -360,6 +378,117 @@ Generate their personalized 12-month roadmap based on what they actually need NE
     return Array.isArray(parsed.roadmap) ? parsed.roadmap : [];
   } catch {
     return [];
+  }
+}
+
+export async function generateRealityCheckCards(
+  partnershipId: string,
+  accounts: Account[],
+  goals: Goal[],
+  visionStatement: string,
+  monthlyBaseline?: number | null
+): Promise<RealityCheckCard[]> {
+  try {
+    const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
+    const totalSavings = accounts
+      .filter((a) => a.type === "SAVINGS")
+      .reduce((sum, a) => sum + a.balance, 0);
+    const totalDebt = accounts
+      .filter((a) => a.type === "CREDIT")
+      .reduce((sum, a) => sum + Math.abs(a.balance), 0);
+    const monthlySpending = monthlyBaseline ?? 0;
+
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 600,
+      system: `You are Parity's life planning assistant. Ground a couple's vision in financial reality.
+
+Return ONLY valid JSON — an array of 2-4 cards:
+[{ "title": "short label (under 6 words)", "detail": "one sentence (under 15 words)", "status": "on-track" | "watch" }]
+
+Rules:
+- "on-track" = strength or behavior that supports the vision
+- "watch" = gap or risk to address
+- Use "you" or "you both"
+- Be specific to their numbers`,
+      messages: [
+        {
+          role: "user",
+          content: `Vision: ${visionStatement}
+
+Financial context:
+- Net worth: $${netWorth.toFixed(0)}
+- Monthly spending: $${monthlySpending.toFixed(0)}
+- Savings: $${totalSavings.toFixed(0)}
+${totalDebt > 0 ? `- Debt: $${totalDebt.toFixed(0)}` : ""}
+- Goals: ${goals.map((g) => g.name).join(", ") || "none"}
+
+Return reality check cards as JSON array.`,
+        },
+      ],
+    });
+
+    let text =
+      message.content[0].type === "text" ? message.content[0].text.trim() : "[]";
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? (parsed as RealityCheckCard[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function generatePlanInsights(
+  partnershipId: string,
+  priorities: Priority[],
+  topCategories: Array<{ category: string; amount: number }>,
+  thisMonthTotal: number
+): Promise<PlanInsightsResult> {
+  try {
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 800,
+      system: `You are Parity's life planning assistant. Compare a couple's stated priorities to their actual spending.
+
+Return ONLY valid JSON:
+{
+  "alignmentScore": 0-100,
+  "signals": [
+    { "title": "short label (under 6 words)", "description": "one sentence (under 15 words)", "status": "aligned" | "tension" | "neutral", "priority": "which priority this relates to" }
+  ]
+}
+
+Rules:
+- alignmentScore: 0 = spending contradicts priorities, 100 = spending perfectly reflects priorities
+- 3-5 signals total
+- "aligned" = spending supports this priority
+- "tension" = spending works against this priority
+- "neutral" = no clear relationship
+- Use "you" or "you both"`,
+      messages: [
+        {
+          role: "user",
+          content: `Their priorities (ranked):
+${priorities.map((p) => `${p.rank}. ${p.area}: ${p.description}`).join("\n")}
+
+Top spending this month (total $${thisMonthTotal.toFixed(0)}):
+${topCategories.map((c) => `- ${c.category}: $${c.amount.toFixed(0)}`).join("\n")}
+
+Generate alignment score and signals.`,
+        },
+      ],
+    });
+
+    let text =
+      message.content[0].type === "text" ? message.content[0].text.trim() : "{}";
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    const parsed = JSON.parse(text) as { alignmentScore?: number; signals?: PlanInsight[] };
+    return {
+      alignmentScore: Math.min(100, Math.max(0, typeof parsed.alignmentScore === "number" ? parsed.alignmentScore : 0)),
+      signals: Array.isArray(parsed.signals) ? parsed.signals : [],
+    };
+  } catch {
+    return { alignmentScore: 0, signals: [] };
   }
 }
 

@@ -10,6 +10,17 @@ interface RealityCheckStepProps {
   isLoading: boolean;
 }
 
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    )
+  );
+}
+
 export function RealityCheckStep({ realityCheck, onBack, onNext, isLoading }: RealityCheckStepProps) {
   const lines = realityCheck.split("\n").filter((line) => line.trim());
 
@@ -23,15 +34,18 @@ export function RealityCheckStep({ realityCheck, onBack, onNext, isLoading }: Re
             <p className="text-sm">{isLoading ? "Analyzing…" : ""}</p>
           ) : (
             <div className="space-y-2">
-              {lines.map((line, i) => (
-                <p key={i} className="text-sm leading-relaxed">
-                  {line.startsWith("-") ? (
-                    <span className="text-muted-foreground">{line}</span>
-                  ) : (
-                    line
-                  )}
-                </p>
-              ))}
+              {lines.map((line, i) => {
+                const isBullet = line.trimStart().startsWith("-") || line.trimStart().startsWith("•");
+                const content = isBullet ? line.replace(/^\s*[-•]\s*/, "") : line;
+                return (
+                  <p key={i} className={`text-sm leading-relaxed ${isBullet ? "flex gap-2" : ""}`}>
+                    {isBullet && <span className="text-muted-foreground flex-shrink-0">•</span>}
+                    <span className={isBullet ? "text-muted-foreground" : ""}>
+                      {renderInlineMarkdown(content)}
+                    </span>
+                  </p>
+                );
+              })}
             </div>
           )}
 

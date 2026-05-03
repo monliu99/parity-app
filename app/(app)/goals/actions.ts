@@ -282,6 +282,18 @@ export async function deleteGoal(id: string) {
   }
 }
 
+export async function clearAllActions() {
+  const { partnership } = await getPartnership();
+
+  await db.goal.deleteMany({
+    where: { partnershipId: partnership.id, type: "action" },
+  });
+
+  revalidatePath("/goals");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function addGoalContribution(goalId: string, amount: number, accountId: string) {
   let isFirst = false;
   try {

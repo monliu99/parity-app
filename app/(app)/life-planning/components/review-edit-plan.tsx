@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, Save, Plus, Trash2, GripVertical, Edit2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMonth } from "@/lib/format-month";
 
 interface RoadmapItem {
   month: number;
@@ -278,7 +279,7 @@ export function ReviewEditPlan({
                   <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground mb-0.5">
-                      {item.month === 1 ? "This month" : `Month ${item.month}`}
+                      {formatMonth(item.month)}
                     </p>
                     <p className={cn("text-sm font-medium", getCategoryColor(item.category))}>
                       {item.title}

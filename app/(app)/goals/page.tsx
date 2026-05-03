@@ -9,12 +9,13 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { formatMonth } from "@/lib/format-month";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { GoalForm } from "./goal-form";
 import { ActionForm } from "./action-form";
 import { UpdateProgress } from "./update-progress";
-import { deleteGoal, toggleActionGoal } from "./actions";
+import { deleteGoal, toggleActionGoal, clearAllActions } from "./actions";
 import { cn } from "@/lib/utils";
 import type { Goal } from "@/app/generated/prisma/client";
 
@@ -141,14 +142,33 @@ export default async function GoalsPage() {
                 </CardDescription>
               )}
             </div>
-            <ActionForm
-              trigger={
-                <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer gap-1">
-                  <Plus className="h-3 w-3" />
-                  Add action
-                </Button>
-              }
-            />
+            <div className="flex items-center gap-2">
+              {sortedActionGoals.length > 0 && (
+                <form
+                  action={async () => {
+                    "use server";
+                    await clearAllActions();
+                  }}
+                >
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" /> Clear all
+                  </Button>
+                </form>
+              )}
+              <ActionForm
+                trigger={
+                  <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer gap-1">
+                    <Plus className="h-3 w-3" />
+                    Add action
+                  </Button>
+                }
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -306,10 +326,10 @@ function ActionGoalRow({ goal, isThisMonth }: { goal: Goal; isThisMonth: boolean
         </p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {isThisMonth && !isComplete && (
-            <span className="text-xs font-semibold text-primary">This month ·</span>
+            <span className="text-xs font-semibold text-primary">{formatMonth(goal.month!)} ·</span>
           )}
-          {goal.month && (
-            <span className="text-xs text-muted-foreground">Month {goal.month}</span>
+          {!isThisMonth && goal.month && (
+            <span className="text-xs text-muted-foreground">{formatMonth(goal.month)}</span>
           )}
           {goal.category && (
             <span

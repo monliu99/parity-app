@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
+import { formatMonth } from "@/lib/format-month";
 
 interface RoadmapAction {
   month: number;
@@ -117,7 +118,7 @@ export function LifePlanHero({
           <div className="mx-5 mb-4 flex items-center gap-3">
             {currentAction ? (
               <div className="flex-1 px-4 py-3 rounded-lg bg-primary/5 border border-primary/10">
-                <p className="text-xs text-primary font-medium mb-1">This month</p>
+                <p className="text-xs text-primary font-medium mb-1">{formatMonth(1)}</p>
                 <p className="text-sm text-foreground font-medium">{currentAction.title}</p>
                 {currentAction.description && (
                   <p className="text-xs text-muted-foreground mt-0.5">{currentAction.description}</p>
