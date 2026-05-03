@@ -388,11 +388,11 @@ export default async function DashboardPage() {
             </Card>
           </div>
 
-          {/* Next Steps */}
-          <NextStepsCard goals={nextStepsGoals} />
-
-          {/* Activity Feed */}
-          <ActivityFeed items={activityItems} />
+          {/* Next Steps + Activity Feed */}
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 items-start">
+            <NextStepsCard goals={nextStepsGoals} />
+            <ActivityFeed items={activityItems} />
+          </div>
         </>
       </OnboardingFlow>
     </div>

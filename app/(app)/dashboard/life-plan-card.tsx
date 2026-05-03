@@ -23,42 +23,48 @@ function ProgressRing({
   completed: number;
   total: number;
 }) {
-  const radius = 14;
+  const radius = 18;
   const circumference = 2 * Math.PI * radius;
   const pct = total > 0 ? completed / total : 0;
   return (
-    <div className="flex items-center gap-2 shrink-0">
-      <svg
-        width="36"
-        height="36"
-        className="-rotate-90"
-        role="img"
-        aria-label={`${completed} of ${total} roadmap actions completed`}
-      >
-        <circle
-          cx="18"
-          cy="18"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          className="text-border"
-        />
-        <circle
-          cx="18"
-          cy="18"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          className="text-primary"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - pct)}
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="text-xs text-muted-foreground tabular-nums" aria-hidden="true">
-        {completed} of {total} actions
+    <div
+      className="flex flex-col items-center gap-0.5 shrink-0"
+      role="img"
+      aria-label={`${completed} of ${total} actions complete`}
+    >
+      <div className="relative">
+        <svg width="44" height="44" className="-rotate-90">
+          <circle
+            cx="22"
+            cy="22"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            className="text-border"
+          />
+          <circle
+            cx="22"
+            cy="22"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            className="text-primary"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - pct)}
+            strokeLinecap="round"
+          />
+        </svg>
+        <span
+          className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary"
+          aria-hidden="true"
+        >
+          {completed}/{total}
+        </span>
+      </div>
+      <span className="text-[9px] text-muted-foreground whitespace-nowrap" aria-hidden="true">
+        actions done
       </span>
     </div>
   );
@@ -96,27 +102,33 @@ export function LifePlanHero({
     <Card className="shadow-card overflow-hidden">
       <CardContent className="p-0">
         {/* Header row */}
-        <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-4 w-4 text-primary shrink-0" />
-              <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
-                Your Shared Vision
-              </p>
-            </div>
-            <p className="text-sm text-foreground leading-relaxed">{visionStatement}</p>
+        <div className="px-5 pt-5 pb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-primary shrink-0" />
+            <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
+              Your Shared Vision
+            </p>
           </div>
-          <ProgressRing completed={progressCompleted} total={progressTotal} />
+          <p className="text-sm text-foreground leading-relaxed">{visionStatement}</p>
         </div>
 
-        {/* Current action */}
-        {currentAction && (
-          <div className="mx-5 mb-4 px-4 py-3 rounded-lg bg-primary/5 border border-primary/10">
-            <p className="text-xs text-primary font-medium mb-1">This month</p>
-            <p className="text-sm text-foreground font-medium">{currentAction.title}</p>
-            {currentAction.description && (
-              <p className="text-xs text-muted-foreground mt-0.5">{currentAction.description}</p>
+        {/* Current action + progress ring */}
+        {progressTotal > 0 && (
+          <div className="mx-5 mb-4 flex items-center gap-3">
+            {currentAction ? (
+              <div className="flex-1 px-4 py-3 rounded-lg bg-primary/5 border border-primary/10">
+                <p className="text-xs text-primary font-medium mb-1">This month</p>
+                <p className="text-sm text-foreground font-medium">{currentAction.title}</p>
+                {currentAction.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{currentAction.description}</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 px-4 py-3 rounded-lg bg-primary/5 border border-primary/10">
+                <p className="text-xs text-emerald-600 font-medium">All actions complete ✓</p>
+              </div>
             )}
+            <ProgressRing completed={progressCompleted} total={progressTotal} />
           </div>
         )}
 

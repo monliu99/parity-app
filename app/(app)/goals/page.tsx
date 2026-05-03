@@ -330,37 +330,37 @@ function ActionGoalRow({ goal, isThisMonth }: { goal: Goal; isThisMonth: boolean
             )}
           </p>
         )}
-      </div>
-
-      <div className="flex sm:hidden gap-1 mt-1 -mb-1 justify-end absolute right-2 top-2">
-        <ActionForm
-          goal={goal}
-          trigger={
+        <div className="flex sm:hidden gap-1 mt-1.5 -mb-0.5 justify-end">
+          <ActionForm
+            goal={goal}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <Pencil className="h-3 w-3 mr-1" /> Edit
+              </Button>
+            }
+          />
+          <form
+            action={async () => {
+              "use server";
+              await deleteGoal(goal.id);
+            }}
+          >
             <Button
+              type="submit"
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
             >
-              <Pencil className="h-3 w-3 mr-1" /> Edit
+              <Trash2 className="h-3 w-3 mr-1" /> Delete
             </Button>
-          }
-        />
-        <form
-          action={async () => {
-            "use server";
-            await deleteGoal(goal.id);
-          }}
-        >
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
-          >
-            <Trash2 className="h-3 w-3 mr-1" /> Delete
-          </Button>
-        </form>
+          </form>
+        </div>
       </div>
+
       <div className="hidden sm:flex absolute right-1 top-1/2 -translate-y-1/2 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary rounded-md">
         <ActionForm
           goal={goal}
