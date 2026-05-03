@@ -17,7 +17,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Parity — Shared Finances for Couples",
+  title: "Parity: Couple's Finance Harmony",
   description: "See your finances together, plan together.",
 };
 
