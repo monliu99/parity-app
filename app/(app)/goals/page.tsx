@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, Pencil, Target } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { GoalForm } from "./goal-form";
 import { ActionForm } from "./action-form";
 import { UpdateProgress } from "./update-progress";
