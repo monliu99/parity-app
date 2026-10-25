@@ -35,14 +35,9 @@ ANTHROPIC_API_KEY=
 DATABASE_URL="postgresql://..."   # Neon connection string
 ```
 
-### Demo accounts
+### Demo data
 
-| Email | Password | Role |
-|---|---|---|
-| `mo@parity.app` | `password` | Partner 1 |
-| `andrew@parity.app` | `password` | Partner 2 |
-
-Invite code: `DEMO42`
+`npx tsx scripts/seed.ts` creates sample couples in your local database.
 
 ---
 
@@ -79,7 +74,7 @@ app/
     settings/      # partnership settings + invite code
     onboarding/    # 3-step wizard (account → txn → goal)
   admin/
-    feedback/      # feedback review (gated to mo@parity.app)
+    feedback/      # feedback review (admin only)
   api/auth/        # NextAuth handler
 
 lib/

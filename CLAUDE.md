@@ -23,7 +23,7 @@ npx prisma generate      # Regenerate Prisma client after schema changes
 npx tsx scripts/seed.ts  # Seed Neon DB with demo data
 ```
 
-**Seed credentials:** `mo@parity.app` / `password` and `andrew@parity.app` / `password` (invite code: `DEMO42`).
+**Seed data:** `scripts/seed.ts` creates sample couples; see the file for the local login details.
 
 ## Architecture
 
