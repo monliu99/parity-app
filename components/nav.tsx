@@ -34,9 +34,11 @@ interface NavProps {
     image?: string | null;
   };
   reviewDue?: boolean;
+  /** Computed on the server from ADMIN_EMAILS. */
+  isAdmin?: boolean;
 }
 
-export default function Nav({ user, reviewDue }: NavProps) {
+export default function Nav({ user, reviewDue, isAdmin }: NavProps) {
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -111,7 +113,7 @@ export default function Nav({ user, reviewDue }: NavProps) {
 
             {/* Actions */}
             <div className="py-1">
-              {user?.email === "mo@parity.app" && (
+              {isAdmin && (
                 <Link
                   href="/admin/feedback"
                   onClick={() => setProfileOpen(false)}

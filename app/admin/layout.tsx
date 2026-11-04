@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-
-const ADMIN_EMAIL = "mo@parity.app";
+import { isAdmin } from "@/lib/admin";
 
 export default async function AdminLayout({
   children,
@@ -9,7 +8,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user?.email || session.user.email !== ADMIN_EMAIL) {
+  if (!isAdmin(session?.user?.email)) {
     redirect("/dashboard");
   }
 

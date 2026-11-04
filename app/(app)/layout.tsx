@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import Nav from "@/components/nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { FeedbackWidget } from "@/components/feedback/feedback-widget";
+import { isAdmin } from "@/lib/admin";
 
 export default async function AppLayout({
   children,
@@ -13,6 +14,7 @@ export default async function AppLayout({
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  const showAdmin = isAdmin(session.user.email);
   let reviewDue = false;
   const membership = await db.membership.findFirst({
     where: { userId: session.user.id },
@@ -39,6 +41,7 @@ export default async function AppLayout({
         <Nav
           user={{ name: session.user?.name, email: session.user?.email, image: session.user?.image }}
           reviewDue={reviewDue}
+          isAdmin={showAdmin}
         />
       </aside>
 
@@ -53,6 +56,7 @@ export default async function AppLayout({
           <MobileNav
             user={{ name: session.user?.name, email: session.user?.email, image: session.user?.image }}
             reviewDue={reviewDue}
+            isAdmin={showAdmin}
           />
         </header>
 

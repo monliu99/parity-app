@@ -40,9 +40,11 @@ interface MobileNavProps {
     image?: string | null;
   };
   reviewDue?: boolean;
+  /** Computed on the server from ADMIN_EMAILS. */
+  isAdmin?: boolean;
 }
 
-export function MobileNav({ user, reviewDue }: MobileNavProps) {
+export function MobileNav({ user, reviewDue, isAdmin }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -118,7 +120,7 @@ export function MobileNav({ user, reviewDue }: MobileNavProps) {
               </div>
             </div>
             <div className="flex flex-col gap-0.5">
-              {user?.email === "mo@parity.app" && (
+              {isAdmin && (
                 <Link
                   href="/admin/feedback"
                   onClick={handleNavClick}
