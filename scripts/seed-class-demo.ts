@@ -1,25 +1,22 @@
 /**
- * Creates a single class demo couple for live presentation.
- * Safe to run anytime — skips if demo@parity.app already exists.
+ * Creates the class demo couple (Greenie & Goldie, invite code CLASS2026).
+ * Insert-only: skips if greenie@parity.app already exists.
  *
- * Credentials:
- *   demo@parity.app   / password  (Jamie)
- *   goldie@parity.app  / password  (Goldie)
- *   Invite code: CLASS2026
- *
- * Run with: npx tsx scripts/seed-class-demo.ts
+ * Run with:
+ *   SEED_PASSWORD=<demo password> npx tsx scripts/seed-class-demo.ts
+ * Both accounts use SEED_PASSWORD (never commit it). Prints the target host.
  */
 
-import { config } from "dotenv";
-import { resolve } from "path";
-
-config({ path: resolve(process.cwd(), ".env.local") });
-
+import { announceTarget } from "./lib/env";
+import { requireEnv } from "./lib/guards";
 import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
+
+announceTarget("seed-class-demo");
+const SEED_PASSWORD = requireEnv(process.env, "SEED_PASSWORD");
 
 neonConfig.webSocketConstructor = ws;
 
@@ -38,7 +35,7 @@ async function main() {
   }
 
   console.log("Creating class demo couple...\n");
-  const hash = await bcrypt.hash("password", 8);
+  const hash = await bcrypt.hash(SEED_PASSWORD, 8);
 
   const jamie = await db.user.create({ data: { email: "greenie@parity.app",   name: "Greenie",   passwordHash: hash } });
   const alex  = await db.user.create({ data: { email: "goldie@parity.app", name: "Goldie", passwordHash: hash } });
@@ -275,8 +272,9 @@ async function main() {
   });
 
   console.log("✅ Class demo account created!\n");
-  console.log("  Login:      greenie@parity.app   /  password  (Greenie)");
-  console.log("  Partner:    goldie@parity.app /  password  (Goldie)");
+  console.log("  Login:      greenie@parity.app  (Greenie)");
+  console.log("  Partner:    goldie@parity.app   (Goldie)");
+  console.log("  Password:   the SEED_PASSWORD you ran with");
   console.log("  Invite code: CLASS2026\n");
   console.log(`  Accounts: ${accounts.length} | Transactions: ${txData.length} | Goals: 3 financial + 6 actions | Life plan: seeded`);
 }

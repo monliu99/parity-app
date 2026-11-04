@@ -1,6 +1,12 @@
 /**
- * Seed script — populates Neon with demo data for UI development.
- * Run with: npx tsx scripts/seed.ts
+ * Seed script: populates a database with demo data for UI development.
+ *
+ * DESTRUCTIVE: deletes every user, partnership, account, goal and transaction
+ * in the target database before seeding (Feedback is preserved).
+ *
+ * Run with:
+ *   ALLOW_DB_RESET=1 SEED_PASSWORD=<demo password> npx tsx scripts/seed.ts
+ * It prints the target database host and refuses to run without ALLOW_DB_RESET=1.
  *
  * Creates test couples:
  *   - Mo & Andrew (demo, with goals)
@@ -11,19 +17,19 @@
  *   - Tom1 & Tom2
  *   - Alex & Elena (Yale SOM professor + Yelp PM)
  *
- * All passwords: "password"
- * Feedback data is preserved across re-seeds.
+ * Every account uses the password in SEED_PASSWORD (never commit it).
  */
 
-import { config } from "dotenv";
-import { resolve } from "path";
-
-config({ path: resolve(process.cwd(), ".env.local") });
+import { guardDestructive } from "./lib/env";
+import { requireEnv } from "./lib/guards";
 import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
+
+guardDestructive("seed");
+const SEED_PASSWORD = requireEnv(process.env, "SEED_PASSWORD");
 
 neonConfig.webSocketConstructor = ws;
 
@@ -316,7 +322,7 @@ const COUPLES: CoupleDef[] = [
 // ── Seed Logic ──
 
 async function seedCouple(c: CoupleDef) {
-  const passwordHash = await bcrypt.hash("password", 8);
+  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 8);
 
   const users = [
     await db.user.create({ data: { email: c.emails[0], name: c.names[0], passwordHash } }),
@@ -482,7 +488,7 @@ async function main() {
   }
 
   console.log("\n✅ Seed complete!");
-  console.log("\nLogin credentials (all passwords: password):");
+  console.log("\nDemo logins (password: the SEED_PASSWORD you ran with):");
   for (const c of COUPLES) {
     console.log(
       `  ${c.emails[0].padEnd(25)} ${c.emails[1].padEnd(25)} (${c.names[0]} & ${c.names[1]})`

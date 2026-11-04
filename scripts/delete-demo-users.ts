@@ -1,11 +1,15 @@
-import { config } from "dotenv";
-import { resolve } from "path";
-config({ path: resolve(process.cwd(), ".env.local") });
-
+/**
+ * Deletes the class demo couple (greenie@ / goldie@) and everything in their
+ * partnership. DESTRUCTIVE: prints the target host and refuses to run without
+ * ALLOW_DB_RESET=1.
+ */
+import { guardDestructive } from "./lib/env";
 import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
+
+guardDestructive("delete-demo-users");
 neonConfig.webSocketConstructor = ws;
 const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
 const db = new PrismaClient({ adapter });
