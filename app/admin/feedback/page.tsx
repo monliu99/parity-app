@@ -1,4 +1,7 @@
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { isAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 const EMOJI_LABELS: Record<number, { emoji: string; label: string }> = {
@@ -28,6 +31,10 @@ function relativeDate(date: Date): string {
 }
 
 export default async function AdminFeedbackPage() {
+  // Checked here as well as in the layout, so this page never relies on it.
+  const session = await auth();
+  if (!isAdmin(session?.user?.email)) redirect("/dashboard");
+
   const feedback = await db.feedback.findMany({
     orderBy: { createdAt: "desc" },
     take: 500,
