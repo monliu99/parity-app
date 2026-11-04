@@ -15,6 +15,13 @@ import {
 import type { RealityCheckCard } from "@/lib/ai/life-planning";
 import { getRollingBaseline, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@/app/generated/prisma/client";
+import { InvalidInputError, assertId, optionalId } from "@/lib/validate";
+
+/** JSON columns accept any serialisable value; Prisma's input type needs a cast. */
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
 
 export async function getLifePlanQuestions() {
   const { partnership } = await getPartnership();
@@ -193,10 +200,11 @@ export async function generateFinalRoadmap(
 }
 
 async function syncRoadmapActions(
+  tx: Prisma.TransactionClient,
   partnershipId: string,
   roadmap: Array<{ month: number; title: string; description: string; category: string }>
 ): Promise<void> {
-  await db.goal.deleteMany({
+  await tx.goal.deleteMany({
     where: { partnershipId, type: "action" },
   });
 
@@ -215,7 +223,7 @@ async function syncRoadmapActions(
     }));
 
   if (toCreate.length > 0) {
-    await (db.goal.createMany as any)({ data: toCreate });
+    await tx.goal.createMany({ data: toCreate });
   }
 }
 
@@ -227,6 +235,17 @@ export async function saveLifePlan(data: {
   lifePlanId?: string;
 }) {
   const { partnership } = await getPartnership();
+  const lifePlanId = optionalId(data.lifePlanId, "life plan id");
+
+  // An existing plan must belong to this partnership. Check before doing any
+  // work, so a foreign or stale id can never reach the action-goal sync.
+  if (lifePlanId) {
+    const owned = await db.lifePlan.findFirst({
+      where: { id: lifePlanId, partnershipId: partnership.id },
+      select: { id: true },
+    });
+    if (!owned) throw new InvalidInputError("Life plan not found");
+  }
 
   const [accounts, goals, baseline] = await Promise.all([
     db.account.findMany({ where: { partnershipId: partnership.id } }),
@@ -244,30 +263,6 @@ export async function saveLifePlan(data: {
       )
     : [];
 
-  if (data.lifePlanId) {
-    await db.lifePlan.update({
-      where: { id: data.lifePlanId },
-      data: {
-        visionStatement: data.visionStatement,
-        roadmap: data.roadmap as any,
-        priorities: data.priorities as any,
-        ...(data.visionAnswers && { visionAnswers: data.visionAnswers as any }),
-        realityCheck: realityCheckCards as any,
-      },
-    });
-  } else {
-    await (db.lifePlan.create as any)({
-      data: {
-        partnershipId: partnership.id,
-        visionStatement: data.visionStatement,
-        roadmap: data.roadmap,
-        priorities: data.priorities,
-        visionAnswers: data.visionAnswers ?? null,
-        realityCheck: realityCheckCards,
-      },
-    });
-  }
-
   const roadmapItems = Array.isArray(data.roadmap)
     ? (data.roadmap as Array<{
         month: number;
@@ -276,7 +271,36 @@ export async function saveLifePlan(data: {
         category: string;
       }>)
     : [];
-  await syncRoadmapActions(partnership.id, roadmapItems);
+
+  // The plan write and the action-goal sync commit together (the AI call above
+  // stays outside the transaction).
+  await db.$transaction(async (tx) => {
+    if (lifePlanId) {
+      const { count } = await tx.lifePlan.updateMany({
+        where: { id: lifePlanId, partnershipId: partnership.id },
+        data: {
+          visionStatement: data.visionStatement,
+          roadmap: asJson(data.roadmap),
+          priorities: asJson(data.priorities),
+          ...(data.visionAnswers && { visionAnswers: asJson(data.visionAnswers) }),
+          realityCheck: asJson(realityCheckCards),
+        },
+      });
+      if (count === 0) throw new InvalidInputError("Life plan not found");
+    } else {
+      await tx.lifePlan.create({
+        data: {
+          partnershipId: partnership.id,
+          visionStatement: data.visionStatement,
+          roadmap: asJson(data.roadmap),
+          priorities: asJson(data.priorities),
+          ...(data.visionAnswers && { visionAnswers: asJson(data.visionAnswers) }),
+          realityCheck: asJson(realityCheckCards),
+        },
+      });
+    }
+    await syncRoadmapActions(tx, partnership.id, roadmapItems);
+  });
 
   invalidateLifePlanCache(partnership.id);
 
@@ -408,7 +432,8 @@ function parseDollarAmount(text: string): number | null {
   return null;
 }
 
-export async function suggestGoalsFromRoadmap(lifePlanId: string): Promise<{ suggestions: SuggestedGoal[] }> {
+export async function suggestGoalsFromRoadmap(rawLifePlanId: string): Promise<{ suggestions: SuggestedGoal[] }> {
+  const lifePlanId = assertId(rawLifePlanId, "life plan id");
   const { partnership } = await getPartnership();
 
   const lifePlan = await db.lifePlan.findFirst({
@@ -492,7 +517,8 @@ export async function createGoalsFromRoadmap(
   return { success: true, count: createdGoals.length };
 }
 
-export async function deleteLifePlan(lifePlanId: string) {
+export async function deleteLifePlan(rawLifePlanId: string) {
+  const lifePlanId = assertId(rawLifePlanId, "life plan id");
   const { partnership } = await getPartnership();
 
   await db.lifePlan.deleteMany({

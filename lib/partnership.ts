@@ -12,7 +12,9 @@ export async function getPartnership() {
   });
 
   if (!membership) {
-    redirect("/login");
+    // Signed in, but the user has no partnership (e.g. it was deleted). Sign
+    // out instead of redirecting to /login, which would loop via the proxy.
+    redirect("/signout");
   }
 
   return { partnership: membership.partnership, userId: session.user.id };

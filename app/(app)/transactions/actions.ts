@@ -4,19 +4,20 @@ import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { revalidatePath } from "next/cache";
 import { TRANSACTION_CATEGORIES } from "@/lib/transactions";
+import { assertId, optionalId } from "@/lib/validate";
 
 export async function createTransaction(formData: FormData) {
+  const { partnership, userId } = await getPartnership();
   try {
-    const { partnership, userId } = await getPartnership();
 
     const description = formData.get("description") as string;
     const amountStr = formData.get("amount") as string;
     const category = formData.get("category") as string;
     const dateStr = formData.get("date") as string;
     const merchant = (formData.get("merchant") as string) || null;
-    const accountId = (formData.get("accountId") as string) || null;
+    const accountId = optionalId(formData.get("accountId"), "account id");
     const forPartner = formData.get("forPartner") === "true";
-    const partnerId = formData.get("partnerId") as string | null;
+    const partnerId = optionalId(formData.get("partnerId"), "partner id");
 
     if (!amountStr) return { error: "Amount is required" };
     const amount = parseFloat(amountStr);
@@ -69,9 +70,10 @@ export async function createTransaction(formData: FormData) {
   }
 }
 
-export async function updateTransaction(id: string, formData: FormData) {
+export async function updateTransaction(rawId: string, formData: FormData) {
+  const id = assertId(rawId, "transaction id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const existing = await db.transaction.findFirst({
       where: { id, partnershipId: partnership.id },
@@ -110,9 +112,10 @@ export async function updateTransaction(id: string, formData: FormData) {
   }
 }
 
-export async function deleteTransaction(id: string) {
+export async function deleteTransaction(rawId: string) {
+  const id = assertId(rawId, "transaction id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const existing = await db.transaction.findFirst({
       where: { id, partnershipId: partnership.id },

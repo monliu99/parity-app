@@ -13,7 +13,7 @@ export const authConfig: NextAuthConfig = {
       const isAuthPage =
         nextUrl.pathname.startsWith("/login") ||
         nextUrl.pathname.startsWith("/signup");
-      const isPublicPage = nextUrl.pathname === "/";
+      const isPublicPage = nextUrl.pathname === "/" || nextUrl.pathname === "/signout";
 
       if (!isLoggedIn && !isAuthPage && !isPublicPage) return false;
       if (isLoggedIn && isAuthPage) {

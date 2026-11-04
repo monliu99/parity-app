@@ -8,6 +8,7 @@ import { generatePlanInsights } from "@/lib/ai/life-planning";
 import type { PlanInsight } from "@/lib/ai/life-planning";
 import { getSpendingComparison, getTopCategories } from "@/lib/transactions";
 import { revalidatePath } from "next/cache";
+import { assertMonthKey } from "@/lib/validate";
 
 export async function checkReviewNeeded() {
   const { partnership } = await getPartnership();
@@ -23,7 +24,8 @@ export async function checkReviewNeeded() {
   return checkReviewSignal(partnership.id, goals, lastReview?.completedAt ?? null);
 }
 
-export async function startReview(month: string) {
+export async function startReview(rawMonth: string) {
+  const month = assertMonthKey(rawMonth);
   const { partnership } = await getPartnership();
 
   const [goals, decisions, spending, topCategories, lifePlan] = await Promise.all([
@@ -111,12 +113,13 @@ export async function completeReview(data: {
   decisionsCount: number;
   mood?: string;
 }) {
+  const month = assertMonthKey(data.month);
   const { partnership } = await getPartnership();
 
   await (db.reviewHistory.create as any)({
     data: {
       partnershipId: partnership.id,
-      month: data.month,
+      month: month,
       insight: data.insight,
       decisionsCreated: data.decisionsCount,
       mood: data.mood,
@@ -136,7 +139,7 @@ export async function completeReview(data: {
     const priorities = raw?.priorities ?? [];
 
     if (priorities.length > 0) {
-      const topCategories = await getTopCategories(partnership.id, data.month);
+      const topCategories = await getTopCategories(partnership.id, month);
       const thisMonthTotal = topCategories.reduce((sum, c) => sum + c.amount, 0);
 
       const insights = await generatePlanInsights(
@@ -147,10 +150,10 @@ export async function completeReview(data: {
       );
 
       await (db.lifePlanSnapshot as any).upsert({
-        where: { lifePlanId_month: { lifePlanId: lifePlan.id, month: data.month } },
+        where: { lifePlanId_month: { lifePlanId: lifePlan.id, month: month } },
         create: {
           lifePlanId: lifePlan.id,
-          month: data.month,
+          month: month,
           alignmentScore: insights.alignmentScore,
           signals: insights.signals,
           priorities,
@@ -259,7 +262,8 @@ export async function getRecentReviews() {
   return { reviews };
 }
 
-export async function deleteCurrentMonthReview(month: string) {
+export async function deleteCurrentMonthReview(rawMonth: string) {
+  const month = assertMonthKey(rawMonth);
   const { partnership } = await getPartnership();
 
   await db.reviewHistory.deleteMany({

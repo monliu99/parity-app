@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { Prisma } from "@/app/generated/prisma/client";
 import { generateInviteCode } from "@/lib/invite-code";
 import bcrypt from "bcryptjs";
 
@@ -31,29 +32,35 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
 
   // If invite code provided, join existing partnership; otherwise create new one
   if (inviteCode) {
-    const partnership = await db.partnership.findUnique({
-      where: { inviteCode },
-      include: { members: true },
-    });
-
-    if (!partnership) {
-      return { success: false, error: "Invalid invite code." };
-    }
-
-    if (partnership.members.length >= 2) {
-      return { success: false, error: "This partnership is already full." };
-    }
-
-    await db.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        memberships: {
-          create: { partnershipId: partnership.id },
+    // The member-count check and the join run in one serializable transaction,
+    // so two people using the same code at once can't both get in.
+    try {
+      await db.$transaction(
+        async (tx) => {
+          const partnership = await tx.partnership.findUnique({
+            where: { inviteCode },
+            select: { id: true, _count: { select: { members: true } } },
+          });
+          if (!partnership) throw new SignupError("Invalid invite code.");
+          if (partnership._count.members >= 2) {
+            throw new SignupError("This partnership is already full.");
+          }
+          await tx.user.create({
+            data: {
+              name,
+              email,
+              passwordHash,
+              memberships: {
+                create: { partnershipId: partnership.id },
+              },
+            },
+          });
         },
-      },
-    });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+    } catch (error) {
+      return signupFailure(error);
+    }
   } else {
     // Create new user + new partnership
     let code = generateInviteCode();
@@ -62,21 +69,45 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
       code = generateInviteCode();
     }
 
-    await db.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        memberships: {
-          create: {
-            partnership: {
-              create: { inviteCode: code },
+    try {
+      await db.user.create({
+        data: {
+          name,
+          email,
+          passwordHash,
+          memberships: {
+            create: {
+              partnership: {
+                create: { inviteCode: code },
+              },
             },
           },
         },
-      },
-    });
+      });
+    } catch (error) {
+      return signupFailure(error);
+    }
   }
 
   return { success: true };
+}
+
+/** An expected, user-facing signup failure. */
+class SignupError extends Error {}
+
+function signupFailure(error: unknown): SignupResult {
+  if (error instanceof SignupError) {
+    return { success: false, error: error.message };
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // P2002: unique constraint (another signup took this email first).
+    if (error.code === "P2002") {
+      return { success: false, error: "An account with this email already exists." };
+    }
+    // P2034: serialization conflict (a concurrent signup used the same code).
+    if (error.code === "P2034") {
+      return { success: false, error: "Something changed while signing up. Please try again." };
+    }
+  }
+  throw error;
 }

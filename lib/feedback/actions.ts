@@ -9,8 +9,8 @@ export async function submitFeedback(input: {
   page: string;
   userAgent?: string;
 }): Promise<{ success: true } | { error: string }> {
+  const { partnership, userId } = await getPartnership();
   try {
-    const { partnership, userId } = await getPartnership();
 
     const { rating, comment, page, userAgent } = input;
 
