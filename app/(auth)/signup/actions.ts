@@ -59,7 +59,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
     } catch (error) {
-      return signupFailure(error);
+      return signupFailure(error, email);
     }
   } else {
     // Create new user + new partnership
@@ -85,7 +85,7 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
         },
       });
     } catch (error) {
-      return signupFailure(error);
+      return signupFailure(error, email);
     }
   }
 
@@ -95,14 +95,21 @@ export async function signupAction(formData: FormData): Promise<SignupResult> {
 /** An expected, user-facing signup failure. */
 class SignupError extends Error {}
 
-function signupFailure(error: unknown): SignupResult {
+async function signupFailure(error: unknown, email: string): Promise<SignupResult> {
   if (error instanceof SignupError) {
     return { success: false, error: error.message };
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    // P2002: unique constraint (another signup took this email first).
+    // P2002: a unique constraint failed. Usually another signup took this
+    // email first, but it can also be an invite-code collision, so check.
     if (error.code === "P2002") {
-      return { success: false, error: "An account with this email already exists." };
+      const emailTaken = await db.user.findUnique({ where: { email }, select: { id: true } });
+      return {
+        success: false,
+        error: emailTaken
+          ? "An account with this email already exists."
+          : "Something went wrong creating your account. Please try again.",
+      };
     }
     // P2034: serialization conflict (a concurrent signup used the same code).
     if (error.code === "P2034") {

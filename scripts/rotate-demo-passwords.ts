@@ -21,7 +21,7 @@ import { neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -68,6 +68,13 @@ async function rotate() {
 }
 
 async function verify() {
+  if (!existsSync(passwordFile)) {
+    console.error(
+      `No saved password at ${passwordFile}. Run the rotation first, or set DEMO_PASSWORD_FILE.`
+    );
+    process.exitCode = 1;
+    return;
+  }
   const password = readFileSync(passwordFile, "utf8").trim();
   const oldPassword = process.env.OLD_DEMO_PASSWORD;
   const users = await db.user.findMany({
