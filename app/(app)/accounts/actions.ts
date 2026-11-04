@@ -4,20 +4,21 @@ import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertId, optionalId } from "@/lib/validate";
 
 const VALID_ACCOUNT_TYPES = ["CHECKING", "SAVINGS", "INVESTMENT", "RETIREMENT", "CREDIT", "OTHER"];
 
 export async function createAccount(formData: FormData) {
   let isFirst = false;
+  const { partnership, userId } = await getPartnership();
   try {
-    const { partnership, userId } = await getPartnership();
 
     const name = formData.get("name") as string;
     const type = formData.get("type") as string;
     const balanceStr = formData.get("balance") as string;
     const institution = (formData.get("institution") as string) || null;
     const forPartner = formData.get("forPartner") === "true";
-    const partnerId = formData.get("partnerId") as string | null;
+    const partnerId = optionalId(formData.get("partnerId"), "partner id");
 
     if (!name?.trim()) {
       return { error: "Account name is required" };
@@ -76,9 +77,10 @@ export async function createAccount(formData: FormData) {
   return { success: true };
 }
 
-export async function updateAccount(id: string, formData: FormData) {
+export async function updateAccount(rawId: string, formData: FormData) {
+  const id = assertId(rawId, "account id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const existing = await db.account.findFirst({
       where: { id, partnershipId: partnership.id },
@@ -128,9 +130,10 @@ export async function updateAccount(id: string, formData: FormData) {
   }
 }
 
-export async function deleteAccount(id: string) {
+export async function deleteAccount(rawId: string) {
+  const id = assertId(rawId, "account id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const existing = await db.account.findFirst({
       where: { id, partnershipId: partnership.id },
@@ -155,9 +158,10 @@ export async function deleteAccount(id: string) {
   }
 }
 
-export async function updateAccountBalance(accountId: string, balance: number) {
+export async function updateAccountBalance(rawAccountId: string, balance: number) {
+  const accountId = assertId(rawAccountId, "account id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const existing = await db.account.findFirst({
       where: { id: accountId, partnershipId: partnership.id },

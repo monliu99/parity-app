@@ -4,11 +4,12 @@ import { db } from "@/lib/db";
 import { getPartnership } from "@/lib/partnership";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertId, optionalId } from "@/lib/validate";
 
 export async function createGoal(formData: FormData) {
   let isFirst = false;
+  const { partnership, userId } = await getPartnership();
   try {
-    const { partnership, userId } = await getPartnership();
 
     const name = formData.get("name") as string;
     const targetAmountStr = formData.get("targetAmount") as string;
@@ -79,7 +80,9 @@ export async function createGoal(formData: FormData) {
     const myUserId = userId;
     const partnerUserId = members.find((m) => m.userId !== userId)?.userId;
 
-    const goal = await (db.goal.create as Function)({
+    // The goal and its allocations are created in one statement, so a failure
+    // can't leave a joint goal without allocation records.
+    await db.goal.create({
       data: {
         partnershipId: partnership.id,
         userId: ownerLabel === "PERSONAL" ? userId : null,
@@ -89,18 +92,18 @@ export async function createGoal(formData: FormData) {
         currentAmount,
         targetDate,
         notes,
+        ...(ownerLabel === "JOINT" && partnerUserId
+          ? {
+              allocations: {
+                create: [
+                  { userId: myUserId, percentage: parseInt(myAllocationStr) },
+                  { userId: partnerUserId, percentage: parseInt(partnerAllocationStr) },
+                ],
+              },
+            }
+          : {}),
       },
     });
-
-    // Create allocation records for joint goals
-    if (ownerLabel === "JOINT" && partnerUserId) {
-      await (db.goalAllocation.createMany as Function)({
-        data: [
-          { goalId: goal.id, userId: myUserId, percentage: parseInt(myAllocationStr) },
-          { goalId: goal.id, userId: partnerUserId, percentage: parseInt(partnerAllocationStr) },
-        ],
-      });
-    }
 
     revalidatePath("/goals");
     revalidatePath("/dashboard");
@@ -114,9 +117,10 @@ export async function createGoal(formData: FormData) {
   return { success: true };
 }
 
-export async function updateGoal(id: string, formData: FormData) {
+export async function updateGoal(rawId: string, formData: FormData) {
+  const id = assertId(rawId, "goal id");
+  const { partnership, userId } = await getPartnership();
   try {
-    const { partnership, userId } = await getPartnership();
 
     // Verify goal exists and belongs to partnership
     const existing = await db.goal.findFirst({
@@ -170,41 +174,40 @@ export async function updateGoal(id: string, formData: FormData) {
       }
     }
 
-    await db.goal.updateMany({
-      where: { id, partnershipId: partnership.id },
-      data: {
-        ownerLabel,
-        name,
-        targetAmount,
-        targetDate,
-        notes,
-      },
+    const members = await db.membership.findMany({
+      where: { partnershipId: partnership.id },
+      select: { userId: true },
     });
+    const partnerUserId = members.find((m) => m.userId !== userId)?.userId;
 
-    // Update allocation records for joint goals
-    if (ownerLabel === "JOINT") {
-      const members = await db.membership.findMany({
-        where: { partnershipId: partnership.id },
-        select: { userId: true },
-      });
-
-      const myUserId = userId;
-      const partnerUserId = members.find((m) => m.userId !== userId)?.userId;
-
-      if (partnerUserId) {
-        // Delete existing allocations and create new ones
-        await db.goalAllocation.deleteMany({
-          where: { goalId: id },
-        });
-
-        await (db.goalAllocation.createMany as Function)({
+    // The goal update and the allocation replacement commit together. The
+    // allocation delete is scoped to this partnership's goal as well as the id.
+    const writes = [
+      db.goal.updateMany({
+        where: { id, partnershipId: partnership.id },
+        data: {
+          ownerLabel,
+          name,
+          targetAmount,
+          targetDate,
+          notes,
+        },
+      }),
+    ];
+    if (ownerLabel === "JOINT" && partnerUserId) {
+      writes.push(
+        db.goalAllocation.deleteMany({
+          where: { goalId: id, goal: { partnershipId: partnership.id } },
+        }),
+        db.goalAllocation.createMany({
           data: [
-            { goalId: id, userId: myUserId, percentage: parseInt(myAllocationStr) },
+            { goalId: id, userId, percentage: parseInt(myAllocationStr) },
             { goalId: id, userId: partnerUserId, percentage: parseInt(partnerAllocationStr) },
           ],
-        });
-      }
+        })
+      );
     }
+    await db.$transaction(writes);
 
     revalidatePath("/goals");
     revalidatePath("/dashboard");
@@ -217,9 +220,10 @@ export async function updateGoal(id: string, formData: FormData) {
   }
 }
 
-export async function updateGoalProgress(id: string, currentAmount: number) {
+export async function updateGoalProgress(rawId: string, currentAmount: number) {
+  const id = assertId(rawId, "goal id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     // Verify goal exists and belongs to partnership
     const existing = await db.goal.findFirst({
@@ -254,9 +258,10 @@ export async function updateGoalProgress(id: string, currentAmount: number) {
   }
 }
 
-export async function deleteGoal(id: string) {
+export async function deleteGoal(rawId: string) {
+  const id = assertId(rawId, "goal id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     // Verify goal exists and belongs to partnership
     const existing = await db.goal.findFirst({
@@ -294,10 +299,14 @@ export async function clearAllActions() {
   return { success: true };
 }
 
-export async function addGoalContribution(goalId: string, amount: number, accountId: string) {
-  let isFirst = false;
+export async function addGoalContribution(rawGoalId: string, amount: number, rawAccountId: string) {
+  const goalId = assertId(rawGoalId, "goal id");
+  const { partnership, userId } = await getPartnership();
   try {
-    const { partnership, userId } = await getPartnership();
+    const accountId = optionalId(rawAccountId, "account id");
+    if (!accountId) {
+      return { error: "Add an account first" };
+    }
 
     // Verify goal exists and belongs to partnership
     const goal = await db.goal.findFirst({
@@ -350,7 +359,7 @@ export async function addGoalContribution(goalId: string, amount: number, accoun
     if (account.userId === null) {
       // Joint account: split according to goal's allocation percentages
       const allocations = await db.goalAllocation.findMany({
-        where: { goalId },
+        where: { goalId, goal: { partnershipId: partnership.id } },
       });
 
       if (allocations.length === 2) {
@@ -409,9 +418,10 @@ export async function addGoalContribution(goalId: string, amount: number, accoun
   }
 }
 
-export async function toggleActionGoal(id: string) {
+export async function toggleActionGoal(rawId: string) {
+  const id = assertId(rawId, "goal id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const goal = await db.goal.findFirst({
       where: { id, partnershipId: partnership.id, type: "action" },
@@ -432,8 +442,8 @@ export async function toggleActionGoal(id: string) {
 }
 
 export async function createActionGoal(formData: FormData) {
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const name = formData.get("name") as string;
     const monthStr = formData.get("month") as string;
@@ -467,9 +477,10 @@ export async function createActionGoal(formData: FormData) {
   }
 }
 
-export async function updateActionGoal(id: string, formData: FormData) {
+export async function updateActionGoal(rawId: string, formData: FormData) {
+  const id = assertId(rawId, "goal id");
+  const { partnership } = await getPartnership();
   try {
-    const { partnership } = await getPartnership();
 
     const existing = await db.goal.findFirst({
       where: { id, partnershipId: partnership.id, type: "action" },
