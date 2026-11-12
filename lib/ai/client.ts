@@ -29,12 +29,10 @@ export interface GenerateOptions {
   prompt: string;
   /** How much the model thinks. Thinking stays on; effort is the control. */
   effort: Effort;
-  /** Defaults by effort, leaving room for thinking plus the answer. */
-  maxTokens?: number;
 }
 
 // Thinking counts toward max_tokens, so these leave generous room for it.
-const DEFAULT_MAX_TOKENS: Record<Effort, number> = { low: 4096, medium: 8192 };
+const MAX_TOKENS: Record<Effort, number> = { low: 4096, medium: 8192 };
 
 let client: Anthropic | null = null;
 
@@ -74,7 +72,7 @@ async function request<T>(
     // truncated answer, which would hide the stop reason.
     message = await getClient().messages.create({
       model: MODEL,
-      max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS[options.effort],
+      max_tokens: MAX_TOKENS[options.effort],
       system: options.system,
       messages: [{ role: "user", content: options.prompt }],
       output_config: format ? { effort: options.effort, format } : { effort: options.effort },

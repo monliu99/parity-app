@@ -89,6 +89,13 @@ describe("readObject", () => {
     });
   });
 
+  it("reports max_tokens, not invalid_output, when the JSON was cut off", () => {
+    expect(readObject(message([thinking, text('{"answer": ')], "max_tokens"), answerFormat)).toMatchObject({
+      ok: false,
+      reason: "max_tokens",
+    });
+  });
+
   it("keeps a refusal as a refusal rather than a parse failure", () => {
     expect(readObject(message([text("I can't help")], "refusal"), answerFormat)).toMatchObject({
       ok: false,

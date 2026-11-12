@@ -213,10 +213,12 @@ Generate 2-4 suggested adjustments.`,
   });
   if (!result.ok) return [];
 
-  // Drop suggestions that point at a goal the couple doesn't have.
+  // Every type except add_action changes an existing goal, so it needs a
+  // targetId that is one of the couple's active goals; applying it would
+  // otherwise silently do nothing.
   const validIds = new Set(activeGoals.map((g) => g.id));
   return result.data.suggestions.filter(
-    (s) => s.type === "add_action" || !s.targetId || validIds.has(s.targetId)
+    (s) => s.type === "add_action" || (s.targetId !== undefined && validIds.has(s.targetId))
   );
 }
 
