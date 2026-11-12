@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import type { Goal, Decision } from "@/app/generated/prisma/client";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { generateObject } from "@/lib/ai/client";
+import type { PlanInsight } from "@/lib/ai/life-planning";
 
 export interface ReviewSignal {
   shouldReview: boolean;
@@ -23,6 +23,24 @@ export interface ReviewSuggestion {
   targetId?: string;
   newValue?: string | number;
 }
+
+const ReviewInsightSchema = z.object({
+  insight: z.string(),
+  frame: z.string(),
+});
+
+const ReviewSuggestionsSchema = z.object({
+  suggestions: z.array(
+    z.object({
+      id: z.string(),
+      type: z.enum(["reschedule", "add_action", "adjust_goal", "mark_complete"]),
+      title: z.string(),
+      explanation: z.string(),
+      targetId: z.string().optional(),
+      newValue: z.union([z.string(), z.number()]).optional(),
+    })
+  ),
+});
 
 const signalCache = new Map<string, { signal: ReviewSignal; expiresAt: number }>();
 const insightCache = new Map<string, { insight: ReviewInsight; expiresAt: number }>();
@@ -118,11 +136,10 @@ export async function generateReviewInsight(
     .map((d) => d.title)
     .slice(0, 3);
 
-  try {
-    const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      system: `You are Parity — a calm, thoughtful financial guide for couples doing their monthly check-in. You observe patterns and help them stay aligned on their shared future.
+  const result = await generateObject(ReviewInsightSchema, {
+    label: "review-insight",
+    effort: "medium",
+    system: `You are Parity — a calm, thoughtful financial guide for couples doing their monthly check-in. You observe patterns and help them stay aligned on their shared future.
 
 Tone: Measured and caring. Direct but kind. Occasionally a light observation when it fits. You're like a thoughtful friend who pays attention to the details.
 
@@ -140,60 +157,42 @@ Return ONLY valid JSON:
   "insight": "<the ONE thing worth discussing>",
   "frame": "<how to bring it up neutrally>"
 }`,
-      messages: [
-        {
-          role: "user",
-          content: `Monthly summary for ${month}:
+    prompt: `Monthly summary for ${month}:
 ${monthlySpending ? `- This month's spending: $${monthlySpending.toFixed(0)}${baselineAmount ? ` (baseline: $${baselineAmount.toFixed(0)})` : ""}` : "- No spending data yet"}
 - Goals progress: ${JSON.stringify(goalsProgress)}
 - Recent decisions: ${JSON.stringify(relevantDecisions)}
 
 Generate their monthly review insight.`,
-        },
-      ],
-    });
+  });
 
-    let text = message.content[0].type === "text" ? message.content[0].text.trim() : "{}";
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-    const parsed = JSON.parse(text);
-    const insight: ReviewInsight = {
-      insight: parsed.insight || "",
-      frame: parsed.frame || "",
-      relatedDecisions: relevantDecisions,
-    };
-
-    insightCache.set(cacheKey, { insight, expiresAt: Date.now() + INSIGHT_CACHE_TTL_MS });
-    return insight;
-  } catch {
-    return {
-      insight: "",
-      frame: "",
-      relatedDecisions: relevantDecisions,
-    };
+  if (!result.ok) {
+    return { insight: "", frame: "", relatedDecisions: relevantDecisions };
   }
+
+  const insight: ReviewInsight = { ...result.data, relatedDecisions: relevantDecisions };
+  insightCache.set(cacheKey, { insight, expiresAt: Date.now() + INSIGHT_CACHE_TTL_MS });
+  return insight;
 }
 
 export async function generateReviewSuggestions(
-  signals: import("@/lib/ai/life-planning").PlanInsight[],
+  signals: PlanInsight[],
   goals: Array<{ id: string; name: string; type: string; targetAmount: number; month: number | null; completedAt: Date | null }>
 ): Promise<ReviewSuggestion[]> {
-  try {
-    const activeGoals = goals.filter((g) => !g.completedAt);
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 700,
-      system: `You are Parity's monthly review assistant. Based on spending signals and current goals/actions, suggest 2-4 specific adjustments the couple could make.
+  const activeGoals = goals.filter((g) => !g.completedAt);
+  const result = await generateObject(ReviewSuggestionsSchema, {
+    label: "review-suggestions",
+    effort: "medium",
+    system: `You are Parity's monthly review assistant. Based on spending signals and current goals/actions, suggest 2-4 specific adjustments the couple could make.
 
-Return ONLY valid JSON — an array of suggestion objects:
-[{
+Return JSON with a "suggestions" array of suggestion objects:
+{ "suggestions": [{
   "id": "s1",
   "type": "reschedule" | "add_action" | "adjust_goal" | "mark_complete",
   "title": "short action title (under 8 words)",
   "explanation": "one sentence why (under 15 words)",
   "targetId": "<existing goal id if type is reschedule/adjust_goal/mark_complete, omit for add_action>",
   "newValue": <new month number 1-12 for reschedule, new amount for adjust_goal, omit otherwise>
-}]
+}] }
 
 Types:
 - reschedule: push an existing action to next month
@@ -202,10 +201,7 @@ Types:
 - mark_complete: mark an existing action done
 
 Only reference goal IDs from the provided list. Use "you both" framing.`,
-      messages: [
-        {
-          role: "user",
-          content: `Signals from this month's review:
+    prompt: `Signals from this month's review:
 ${signals.map((s) => `- [${s.status}] ${s.title}: ${s.description}`).join("\n")}
 
 Current goals/actions:
@@ -213,23 +209,17 @@ ${activeGoals.length > 0
   ? activeGoals.map((g) => `- id: "${g.id}", name: "${g.name}", type: "${g.type}", target: $${g.targetAmount}`).join("\n")
   : "None"}
 
-Generate 2-4 suggested adjustments as JSON array.`,
-        },
-      ],
-    });
+Generate 2-4 suggested adjustments.`,
+  });
+  if (!result.ok) return [];
 
-    const text = message.content[0].type === "text" ? message.content[0].text.trim() : "[]";
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
-    const parsed = JSON.parse(jsonMatch[0]) as ReviewSuggestion[];
-    const validIds = new Set(activeGoals.map((g) => g.id));
-    return parsed.filter((s) => {
-      if (s.type !== "add_action" && s.targetId && !validIds.has(s.targetId)) return false;
-      return true;
-    });
-  } catch {
-    return [];
-  }
+  // Every type except add_action changes an existing goal, so it needs a
+  // targetId that is one of the couple's active goals; applying it would
+  // otherwise silently do nothing.
+  const validIds = new Set(activeGoals.map((g) => g.id));
+  return result.data.suggestions.filter(
+    (s) => s.type === "add_action" || (s.targetId !== undefined && validIds.has(s.targetId))
+  );
 }
 
 export function invalidateReviewCache(partnershipId: string): void {

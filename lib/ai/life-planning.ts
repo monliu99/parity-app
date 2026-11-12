@@ -1,7 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import type { Account, Goal } from "@/app/generated/prisma/client";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { generateObject, generateText } from "@/lib/ai/client";
 
 // Types for life planning flow
 export interface LifePlanQuestion {
@@ -86,20 +85,54 @@ export interface FinancialContext {
   hasBudget: boolean;
 }
 
+const PrioritiesSchema = z.object({
+  priorities: z.array(z.object({ rank: z.number(), area: z.string(), description: z.string() })),
+  conflicts: z.array(z.object({ area: z.string(), tension: z.string(), suggestedFrame: z.string() })),
+});
+
+const RoadmapSchema = z.object({
+  roadmap: z.array(
+    z.object({
+      month: z.number(),
+      title: z.string(),
+      description: z.string(),
+      category: z.enum(["financial", "experience", "logistical"]),
+    })
+  ),
+});
+
+const RealityCheckCardsSchema = z.object({
+  cards: z.array(
+    z.object({ title: z.string(), detail: z.string(), status: z.enum(["on-track", "watch"]) })
+  ),
+});
+
+const PlanInsightsSchema = z.object({
+  alignmentScore: z.number(),
+  signals: z.array(
+    z.object({
+      title: z.string(),
+      description: z.string(),
+      status: z.enum(["aligned", "tension", "neutral"]),
+      priority: z.string(),
+    })
+  ),
+});
+
 // In-memory cache for sessions
-const sessionCache = new Map<string, { data: any; expiresAt: number }>();
+const sessionCache = new Map<string, { data: unknown; expiresAt: number }>();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-function cacheGet(partnershipId: string, key: string): any | null {
+function cacheGet<T>(partnershipId: string, key: string): T | null {
   const cacheKey = `${partnershipId}:${key}`;
   const cached = sessionCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
-    return cached.data;
+    return cached.data as T;
   }
   return null;
 }
 
-function cacheSet(partnershipId: string, key: string, data: any): void {
+function cacheSet(partnershipId: string, key: string, data: unknown): void {
   const cacheKey = `${partnershipId}:${key}`;
   sessionCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
@@ -122,11 +155,10 @@ export async function processSharedVision(
   partnershipId: string,
   answers: Record<string, string>
 ): Promise<string> {
-  try {
-    const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-      max_tokens: 400,
-      system: `You are Parity's life planning assistant. Synthesize a couple's shared vision into 2-3 sentences.
+  const result = await generateText({
+    label: "shared-vision",
+    effort: "medium",
+    system: `You are Parity's life planning assistant. Synthesize a couple's shared vision into 2-3 sentences.
 
 Rules:
 - Use "you" or "you both" — never "your partner"
@@ -136,18 +168,9 @@ Rules:
 - Make it feel personal and accurate
 
 Return ONLY the vision statement, nothing else.`,
-      messages: [
-        {
-          role: "user",
-          content: `Their answers:\n${JSON.stringify(answers)}\n\nGenerate their shared vision statement.`,
-        },
-      ],
-    });
-
-    return message.content[0].type === "text" ? message.content[0].text.trim() : "";
-  } catch {
-    return "";
-  }
+    prompt: `Their answers:\n${JSON.stringify(answers)}\n\nGenerate their shared vision statement.`,
+  });
+  return result.ok ? result.data : "";
 }
 
 export async function realityCheck(
@@ -157,40 +180,39 @@ export async function realityCheck(
   visionAnswers: Record<string, string>,
   monthlyBaseline?: number | null
 ): Promise<string> {
-  try {
-    const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
-    const monthlySpending = monthlyBaseline ?? 0;
+  const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const monthlySpending = monthlyBaseline ?? 0;
 
-    // Personalized context
-    const jointAccounts = accounts.filter(a => !a.userId || a.ownerLabel === "JOINT");
-    const savingsAccounts = accounts.filter(a => a.type === "SAVINGS");
-    const totalSavings = savingsAccounts.reduce((sum, a) => sum + a.balance, 0);
-    const investmentAccounts = accounts.filter(a => a.type === "INVESTMENT");
-    const creditAccounts = accounts.filter(a => a.type === "CREDIT");
-    const totalDebt = creditAccounts.reduce((sum, a) => sum + Math.abs(a.balance), 0);
+  // Personalized context
+  const jointAccounts = accounts.filter(a => !a.userId || a.ownerLabel === "JOINT");
+  const savingsAccounts = accounts.filter(a => a.type === "SAVINGS");
+  const totalSavings = savingsAccounts.reduce((sum, a) => sum + a.balance, 0);
+  const investmentAccounts = accounts.filter(a => a.type === "INVESTMENT");
+  const creditAccounts = accounts.filter(a => a.type === "CREDIT");
+  const totalDebt = creditAccounts.reduce((sum, a) => sum + Math.abs(a.balance), 0);
 
-    const goalsContext = goals.map((g) => ({
-      name: g.name,
-      current: g.currentAmount,
-      target: g.targetAmount,
-      pct: Math.round((g.currentAmount / g.targetAmount) * 100),
-    }));
+  const goalsContext = goals.map((g) => ({
+    name: g.name,
+    current: g.currentAmount,
+    target: g.targetAmount,
+    pct: Math.round((g.currentAmount / g.targetAmount) * 100),
+  }));
 
-    // Build setup description
-    const setupNotes: string[] = [];
-    if (jointAccounts.length >= 2) setupNotes.push("already have joint accounts set up");
-    if (totalSavings > 10000) setupNotes.push("strong savings foundation");
-    if (investmentAccounts.length > 0) setupNotes.push("already investing");
-    if (totalDebt > 0) setupNotes.push(`managing $${(totalDebt/1000).toFixed(0)}k in debt`);
+  // Build setup description
+  const setupNotes: string[] = [];
+  if (jointAccounts.length >= 2) setupNotes.push("already have joint accounts set up");
+  if (totalSavings > 10000) setupNotes.push("strong savings foundation");
+  if (investmentAccounts.length > 0) setupNotes.push("already investing");
+  if (totalDebt > 0) setupNotes.push(`managing $${(totalDebt/1000).toFixed(0)}k in debt`);
 
-    const setupDescription = setupNotes.length > 0
-      ? `\n\nSetup notes: ${setupNotes.join(", ")}.`
-      : "";
+  const setupDescription = setupNotes.length > 0
+    ? `\n\nSetup notes: ${setupNotes.join(", ")}.`
+    : "";
 
-    const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      system: `You are Parity's life planning assistant. Ground their vision in financial reality — gently.
+  const result = await generateText({
+    label: "reality-check",
+    effort: "medium",
+    system: `You are Parity's life planning assistant. Ground their vision in financial reality — gently.
 
 Rules:
 - Use "you" or "you both"
@@ -201,10 +223,7 @@ Rules:
 - Be specific to their situation
 
 Return ONLY the reality check as plain text bullets, nothing else.`,
-      messages: [
-        {
-          role: "user",
-          content: `Their vision:\n${JSON.stringify(visionAnswers)}
+    prompt: `Their vision:\n${JSON.stringify(visionAnswers)}
 
 Financial context:
 - Net worth: $${netWorth.toFixed(0)}
@@ -214,14 +233,8 @@ ${totalDebt > 0 ? `- Debt: $${totalDebt.toFixed(0)}` : ""}
 - Goals: ${JSON.stringify(goalsContext)}${setupDescription}
 
 Provide a personalized reality check on their vision.`,
-        },
-      ],
-    });
-
-    return message.content[0].type === "text" ? message.content[0].text.trim() : "";
-  } catch {
-    return "";
-  }
+  });
+  return result.ok ? result.data : "";
 }
 
 export async function prioritizeValues(
@@ -230,14 +243,13 @@ export async function prioritizeValues(
   realityCheck: string,
   accounts: Account[]
 ): Promise<{ priorities: Priority[]; conflicts: ValueConflict[] }> {
-  const cached = cacheGet(partnershipId, "priorities");
+  const cached = cacheGet<{ priorities: Priority[]; conflicts: ValueConflict[] }>(partnershipId, "priorities");
   if (cached) return cached;
 
-  try {
-    const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      system: `You are Parity's life planning assistant. Help couples rank their financial priorities and surface value conflicts.
+  const result = await generateObject(PrioritiesSchema, {
+    label: "priorities",
+    effort: "medium",
+    system: `You are Parity's life planning assistant. Help couples rank their financial priorities and surface value conflicts.
 
 Rules:
 - Use "you" or "you both"
@@ -258,32 +270,16 @@ Return ONLY valid JSON:
 }
 
 Common areas: housing, travel, emergency fund, debt repayment, retirement, experiences, hosting, dining.`,
-      messages: [
-        {
-          role: "user",
-          content: `Their vision: ${vision}
+    prompt: `Their vision: ${vision}
 
 Reality check: ${realityCheck}
 
 Help them prioritize and surface any value conflicts.`,
-        },
-      ],
-    });
+  });
+  if (!result.ok) return { priorities: [], conflicts: [] };
 
-    let text = message.content[0].type === "text" ? message.content[0].text.trim() : "{}";
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-    const parsed = JSON.parse(text);
-    const result = {
-      priorities: Array.isArray(parsed.priorities) ? parsed.priorities : [],
-      conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
-    };
-
-    cacheSet(partnershipId, "priorities", result);
-    return result;
-  } catch {
-    return { priorities: [], conflicts: [] };
-  }
+  cacheSet(partnershipId, "priorities", result.data);
+  return result.data;
 }
 
 export async function generateRoadmap(
@@ -292,40 +288,39 @@ export async function generateRoadmap(
   priorities: Priority[],
   financialContext: FinancialContext
 ): Promise<RoadmapItem[]> {
-  try {
-    // Build context summary for the AI
-    const existingSetup: string[] = [];
-    if (financialContext.hasJointChecking) existingSetup.push("joint checking account");
-    if (financialContext.hasJointSavings) existingSetup.push("joint savings account");
-    if (financialContext.hasSavingsAccounts) existingSetup.push("savings accounts");
-    if (financialContext.hasInvestmentAccounts) existingSetup.push("investment accounts");
-    if (financialContext.hasDebt) existingSetup.push("debt to manage");
+  // Build context summary for the AI
+  const existingSetup: string[] = [];
+  if (financialContext.hasJointChecking) existingSetup.push("joint checking account");
+  if (financialContext.hasJointSavings) existingSetup.push("joint savings account");
+  if (financialContext.hasSavingsAccounts) existingSetup.push("savings accounts");
+  if (financialContext.hasInvestmentAccounts) existingSetup.push("investment accounts");
+  if (financialContext.hasDebt) existingSetup.push("debt to manage");
 
-    const setupDescription = existingSetup.length > 0
-      ? `They already have: ${existingSetup.join(", ")}.`
-      : "They are just starting out.";
+  const setupDescription = existingSetup.length > 0
+    ? `They already have: ${existingSetup.join(", ")}.`
+    : "They are just starting out.";
 
-    // Goals context
-    let goalsDescription = "";
-    if (financialContext.goals.length > 0) {
-      const goalSummaries = financialContext.goals.map(g =>
-        `${g.name} (${g.progress}% complete${g.monthsUntilTarget ? `, ${g.monthsUntilTarget} months left` : ""})`
-      );
-      goalsDescription = `\n\nExisting goals:\n${goalSummaries.join("\n")}`;
-    }
+  // Goals context
+  let goalsDescription = "";
+  if (financialContext.goals.length > 0) {
+    const goalSummaries = financialContext.goals.map(g =>
+      `${g.name} (${g.progress}% complete${g.monthsUntilTarget ? `, ${g.monthsUntilTarget} months left` : ""})`
+    );
+    goalsDescription = `\n\nExisting goals:\n${goalSummaries.join("\n")}`;
+  }
 
-    // Budget context
-    let budgetDescription = "";
-    if (financialContext.hasBudget && financialContext.topSpendingCategories.length > 0) {
-      budgetDescription = `\n\nTop spending categories: ${financialContext.topSpendingCategories.join(", ")}.`;
-    } else if (!financialContext.hasBudget) {
-      budgetDescription = "\n\nNote: They haven't set up budget categories yet.";
-    }
+  // Budget context
+  let budgetDescription = "";
+  if (financialContext.hasBudget && financialContext.topSpendingCategories.length > 0) {
+    budgetDescription = `\n\nTop spending categories: ${financialContext.topSpendingCategories.join(", ")}.`;
+  } else if (!financialContext.hasBudget) {
+    budgetDescription = "\n\nNote: They haven't set up budget categories yet.";
+  }
 
-    const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-      max_tokens: 800,
-      system: `You are Parity's life planning assistant. Generate a 12-month action roadmap based on their vision, priorities, and CURRENT financial setup.
+  const result = await generateObject(RoadmapSchema, {
+    label: "roadmap",
+    effort: "medium",
+    system: `You are Parity's life planning assistant. Generate a 12-month action roadmap based on their vision, priorities, and CURRENT financial setup.
 
 CRITICAL: DO NOT suggest things they already have.
 - If they have joint accounts, DO NOT suggest "set up joint account"
@@ -351,10 +346,7 @@ Return ONLY valid JSON:
 }
 
 Month is 1-12 (immediate = 1, 12 months out = 12).`,
-      messages: [
-        {
-          role: "user",
-          content: `Their vision: ${vision}
+    prompt: `Their vision: ${vision}
 
 Their priorities: ${JSON.stringify(priorities)}
 
@@ -367,18 +359,8 @@ ${financialContext.hasDebt ? `- Debt: $${financialContext.debts.toFixed(0)}` : "
 ${setupDescription}
 
 Generate their personalized 12-month roadmap based on what they actually need NEXT.`,
-        },
-      ],
-    });
-
-    let text = message.content[0].type === "text" ? message.content[0].text.trim() : "{}";
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed.roadmap) ? parsed.roadmap : [];
-  } catch {
-    return [];
-  }
+  });
+  return result.ok ? result.data.roadmap : [];
 }
 
 export async function generateRealityCheckCards(
@@ -388,33 +370,29 @@ export async function generateRealityCheckCards(
   visionStatement: string,
   monthlyBaseline?: number | null
 ): Promise<RealityCheckCard[]> {
-  try {
-    const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
-    const totalSavings = accounts
-      .filter((a) => a.type === "SAVINGS")
-      .reduce((sum, a) => sum + a.balance, 0);
-    const totalDebt = accounts
-      .filter((a) => a.type === "CREDIT")
-      .reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    const monthlySpending = monthlyBaseline ?? 0;
+  const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const totalSavings = accounts
+    .filter((a) => a.type === "SAVINGS")
+    .reduce((sum, a) => sum + a.balance, 0);
+  const totalDebt = accounts
+    .filter((a) => a.type === "CREDIT")
+    .reduce((sum, a) => sum + Math.abs(a.balance), 0);
+  const monthlySpending = monthlyBaseline ?? 0;
 
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      system: `You are Parity's life planning assistant. Ground a couple's vision in financial reality.
+  const result = await generateObject(RealityCheckCardsSchema, {
+    label: "reality-check-cards",
+    effort: "low",
+    system: `You are Parity's life planning assistant. Ground a couple's vision in financial reality.
 
-Return ONLY valid JSON — an array of 2-4 cards:
-[{ "title": "short label (under 6 words)", "detail": "one sentence (under 15 words)", "status": "on-track" | "watch" }]
+Return JSON with a "cards" array of 2-4 cards:
+{ "cards": [{ "title": "short label (under 6 words)", "detail": "one sentence (under 15 words)", "status": "on-track" | "watch" }] }
 
 Rules:
 - "on-track" = strength or behavior that supports the vision
 - "watch" = gap or risk to address
 - Use "you" or "you both"
 - Be specific to their numbers`,
-      messages: [
-        {
-          role: "user",
-          content: `Vision: ${visionStatement}
+    prompt: `Vision: ${visionStatement}
 
 Financial context:
 - Net worth: $${netWorth.toFixed(0)}
@@ -423,19 +401,9 @@ Financial context:
 ${totalDebt > 0 ? `- Debt: $${totalDebt.toFixed(0)}` : ""}
 - Goals: ${goals.map((g) => g.name).join(", ") || "none"}
 
-Return reality check cards as JSON array.`,
-        },
-      ],
-    });
-
-    let text =
-      message.content[0].type === "text" ? message.content[0].text.trim() : "[]";
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? (parsed as RealityCheckCard[]) : [];
-  } catch {
-    return [];
-  }
+Return the reality check cards.`,
+  });
+  return result.ok ? result.data.cards : [];
 }
 
 export async function generatePlanInsights(
@@ -444,11 +412,10 @@ export async function generatePlanInsights(
   topCategories: Array<{ category: string; amount: number }>,
   thisMonthTotal: number
 ): Promise<PlanInsightsResult> {
-  try {
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 800,
-      system: `You are Parity's life planning assistant. Compare a couple's stated priorities to their actual spending.
+  const result = await generateObject(PlanInsightsSchema, {
+    label: "plan-insights",
+    effort: "medium",
+    system: `You are Parity's life planning assistant. Compare a couple's stated priorities to their actual spending.
 
 Return ONLY valid JSON:
 {
@@ -465,31 +432,20 @@ Rules:
 - "tension" = spending works against this priority
 - "neutral" = no clear relationship
 - Use "you" or "you both"`,
-      messages: [
-        {
-          role: "user",
-          content: `Their priorities (ranked):
+    prompt: `Their priorities (ranked):
 ${priorities.map((p) => `${p.rank}. ${p.area}: ${p.description}`).join("\n")}
 
 Top spending this month (total $${thisMonthTotal.toFixed(0)}):
 ${topCategories.map((c) => `- ${c.category}: $${c.amount.toFixed(0)}`).join("\n")}
 
 Generate alignment score and signals.`,
-        },
-      ],
-    });
+  });
+  if (!result.ok) return { alignmentScore: 0, signals: [] };
 
-    let text =
-      message.content[0].type === "text" ? message.content[0].text.trim() : "{}";
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-    const parsed = JSON.parse(text) as { alignmentScore?: number; signals?: PlanInsight[] };
-    return {
-      alignmentScore: Math.min(100, Math.max(0, typeof parsed.alignmentScore === "number" ? parsed.alignmentScore : 0)),
-      signals: Array.isArray(parsed.signals) ? parsed.signals : [],
-    };
-  } catch {
-    return { alignmentScore: 0, signals: [] };
-  }
+  return {
+    alignmentScore: Math.min(100, Math.max(0, result.data.alignmentScore)),
+    signals: result.data.signals,
+  };
 }
 
 export function invalidateLifePlanCache(partnershipId: string): void {

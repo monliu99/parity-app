@@ -1,8 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { Account, Goal } from "@/app/generated/prisma/client";
+import { generateText } from "@/lib/ai/client";
 import type { MonthlySpending } from "@/lib/transactions";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const FALLBACK_ANSWER = "I couldn't answer that just now. Please try again in a moment.";
 
 interface SpendingByPerson {
   name: string;
@@ -45,9 +45,9 @@ export async function askParity(
 
   const totalNetWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
 
-  const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 400,
+  const result = await generateText({
+    label: "chat",
+    effort: "medium",
     system: `You are Parity — a calm, thoughtful financial guide for couples. You observe patterns, connect the dots, and help two people stay aligned on the future they're building together. You're never preachy or robotic.
 
 Tone: Measured and caring. Direct but kind. Occasionally a light, wry observation when it fits — never forced.
@@ -62,10 +62,7 @@ Rules:
 - Celebrate what's working — be specific about what's going well
 - If the data genuinely can't answer the question, say so briefly and suggest what they'd need to track
 - Today's date: ${new Date().toISOString().split("T")[0]}`,
-    messages: [
-      {
-        role: "user",
-        content: `Financial data:
+    prompt: `Financial data:
 Accounts: ${JSON.stringify(accountsContext)}
 Goals: ${JSON.stringify(goalsContext)}
 Net worth: $${totalNetWorth.toLocaleString()}
@@ -73,11 +70,7 @@ Monthly spending (last ${monthlySpending.length} months): ${JSON.stringify(month
 Spending by person: ${JSON.stringify(spendingByPerson)}
 
 Question: ${question}`,
-      },
-    ],
   });
 
-  return message.content[0].type === "text"
-    ? message.content[0].text
-    : "Sorry, I couldn't generate a response.";
+  return result.ok ? result.data : FALLBACK_ANSWER;
 }
